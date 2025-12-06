@@ -19,18 +19,23 @@ struct ContentView: View {
                 .padding()
 
             ZStack {
-                WritingCanvas(canvasView: $canvasView)
-                    .frame(height: 400)
-                    .border(Color.gray, width: 1)
-                    .cornerRadius(8)
+                LinedPaperBackground()
                 
-                if isAnalyzing {
-                    ProgressView("Analyzing...")
-                        .padding()
-                        .background(Color(.systemBackground).opacity(0.8))
-                        .cornerRadius(10)
-                }
+                WritingCanvas(canvasView: $canvasView)
             }
+            .frame(height: 400)
+            .border(Color.gray, width: 1)
+            .cornerRadius(8)
+            .overlay(
+                Group {
+                    if isAnalyzing {
+                        ProgressView("Analyzing...")
+                            .padding()
+                            .background(Color(.systemBackground).opacity(0.8))
+                            .cornerRadius(10)
+                    }
+                }
+            )
             .padding()
 
             HStack {
@@ -140,7 +145,8 @@ struct WritingCanvas: UIViewRepresentable {
 
     func makeUIView(context: Context) -> PKCanvasView {
         canvasView.drawingPolicy = .anyInput
-        canvasView.backgroundColor = .white
+        canvasView.isOpaque = false
+        canvasView.backgroundColor = .clear
         
         // iPad support - check for toolPicker
         // In Playgrounds on iPad, toolPicker is often handled automatically or needs global attachment.
