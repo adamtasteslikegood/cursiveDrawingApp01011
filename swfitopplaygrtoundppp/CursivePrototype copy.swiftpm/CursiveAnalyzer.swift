@@ -212,10 +212,26 @@ fileprivate struct StrokeExtractor {
         var all: [[CGPoint]] = []
         if !drawing.strokes.isEmpty {
             for stroke in drawing.strokes {
-                // PKStroke path is a collection of PKStrokePoints
+                // PKStroke provides `path` which can be sampled.
+                // We'll try `forEach` to append points; if not available, fallback to raster approach below.
                 var pts: [CGPoint] = []
-                for point in stroke.path {
-                    pts.append(point.location)
+                stroke.path.forEach { element in
+                    switch element {
+                    case .moveToPoint(let p):
+                        pts.append(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)))
+                    case .addLineToPoint(let p):
+                        pts.append(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)))
+                    case .addQuadCurveToPoint(let p, control: let c):
+                        // approximate quadratic by adding control then end
+                        pts.append(CGPoint(x: CGFloat(c.x), y: CGFloat(c.y)))
+                        pts.append(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)))
+                    case .addCurveToPoint(let p, control1: let c1, control2: let c2):
+                        pts.append(CGPoint(x: CGFloat(c1.x), y: CGFloat(c1.y)))
+                        pts.append(CGPoint(x: CGFloat(c2.x), y: CGFloat(c2.y)))
+                        pts.append(CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)))
+                    @unknown default:
+                        break
+                    }
                 }
                 if !pts.isEmpty {
                     all.append(pts)
@@ -304,9 +320,7 @@ fileprivate struct BaselineDetector {
         }
         // histogram approach: bucket y values
         let sorted = ys.sorted()
-        let sorted = ys.sorted()
-        // median was unused
-
+        let median = sorted[sorted.count/2]
         // xHeight: use interquartile range to find typical stroke midline size
         let q1 = sorted[max(0, sorted.count/4)]
         let q3 = sorted[min(sorted.count-1, sorted.count*3/4)]
@@ -445,8 +459,7 @@ fileprivate struct FeatureExtractor {
             let dx1 = Double(p1.x - p0.x), dy1 = Double(p1.y - p0.y)
             let dx2 = Double(p2.x - p1.x), dy2 = Double(p2.y - p1.y)
             let cross = abs(dx1 * dy2 - dy1 * dx2)
-            // 'a' was unused
-
+            let a = sqrt(dx1*dx1 + dy1*dy1)
             // stable small denom guard
             let denom = max(1e-6, pow((dx1*dx1 + dy1*dy1), 1.5) + 1e-6)
             let curvature = cross / denom
@@ -609,7 +622,7 @@ fileprivate struct VisionHelpers {
         req.usesLanguageCorrection = true
         let handler = VNImageRequestHandler(cgImage: cg, options: [:])
         try handler.perform([req])
-        return req.results ?? []
+        return req.results as? [VNRecognizedTextObservation] ?? []
     }
 
     static func extractContours(from cgImage: CGImage) throws -> [[CGPoint]] {
@@ -636,17 +649,21 @@ fileprivate extension PKDrawing {
     func asImage(backgroundColor: UIColor = .white, scale: CGFloat = 1.0) -> UIImage {
         // determine bounds
         let bounds = self.bounds
-        let img = self.image(from: bounds, scale: scale)
-        
+        let width = max(1, bounds.width)
+        let height = max(1, bounds.height)
+        let size = CGSize(width: width * scale, height: height * scale)
+
         let format = UIGraphicsImageRendererFormat()
-        format.scale = 1.0 // image is already scaled
-        let renderer = UIGraphicsImageRenderer(size: img.size, format: format)
-        
-        return renderer.image { ctx in
+        format.scale = 1.0 // we handle scale manually
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+        let img = renderer.image { ctx in
             backgroundColor.setFill()
-            ctx.fill(CGRect(origin: .zero, size: img.size))
-            img.draw(at: .zero)
+            ctx.fill(CGRect(origin: .zero, size: size))
+            ctx.cgContext.scaleBy(x: scale, y: scale)
+            ctx.cgContext.translateBy(x: -bounds.minX, y: -bounds.minY)
+            self.drawHierarchy(in: bounds, with: .clear)
         }
+        return img
     }
 }
 
