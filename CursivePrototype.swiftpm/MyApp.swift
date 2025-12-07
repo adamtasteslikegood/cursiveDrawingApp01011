@@ -9,4 +9,3 @@ struct CursiveApp: App {
         }
     }
 }
-Color.orange
