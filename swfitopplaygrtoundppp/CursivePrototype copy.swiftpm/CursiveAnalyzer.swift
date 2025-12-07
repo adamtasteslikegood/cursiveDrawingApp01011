@@ -304,8 +304,6 @@ fileprivate struct BaselineDetector {
         }
         // histogram approach: bucket y values
         let sorted = ys.sorted()
-        let sorted = ys.sorted()
-        // median was unused
 
         // xHeight: use interquartile range to find typical stroke midline size
         let q1 = sorted[max(0, sorted.count/4)]

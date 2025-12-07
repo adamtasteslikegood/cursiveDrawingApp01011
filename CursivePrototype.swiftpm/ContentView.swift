@@ -4,6 +4,7 @@ import Vision
 
 struct ContentView: View {
     @State private var canvasView = PKCanvasView()
+    @State private var toolPicker = PKToolPicker()
     @State private var recognizedText: String = ""
     @State private var feedback: String = ""
     @State private var isAnalyzing: Bool = false
@@ -21,7 +22,7 @@ struct ContentView: View {
             ZStack {
                 LinedPaperBackground()
                 
-                WritingCanvas(canvasView: $canvasView)
+                WritingCanvas(canvasView: $canvasView, toolPicker: $toolPicker)
             }
             .frame(height: 400)
             .border(Color.gray, width: 1)
@@ -142,15 +143,20 @@ struct ContentView: View {
 
 struct WritingCanvas: UIViewRepresentable {
     @Binding var canvasView: PKCanvasView
+    @Binding var toolPicker: PKToolPicker
 
     func makeUIView(context: Context) -> PKCanvasView {
         canvasView.drawingPolicy = .anyInput
         canvasView.isOpaque = false
         canvasView.backgroundColor = .clear
         
-        // iPad support - check for toolPicker
-        // In Playgrounds on iPad, toolPicker is often handled automatically or needs global attachment.
-        // For simple proto, we assume finger/pencil drawing works with .anyInput
+        // Set default tool
+        canvasView.tool = PKInkingTool(.pen, color: .black, width: 10)
+        
+        // Setup tool picker
+        toolPicker.setVisible(true, forFirstResponder: canvasView)
+        toolPicker.addObserver(canvasView)
+        canvasView.becomeFirstResponder()
         
         return canvasView
     }
