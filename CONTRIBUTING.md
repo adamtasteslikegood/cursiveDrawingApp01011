@@ -25,6 +25,8 @@ Use the PR template, explain the user-visible change, and report exactly which c
 - **CodeQL / Actions**: analyzes automation configuration.
 - Dependabot opens weekly action-version updates. Add a Swift dependency update entry if external package dependencies are introduced.
 
+CodeQL uses advanced setup. GitHub default setup must remain disabled because it rejects uploads from the custom workflow.
+
 Maintainers should configure required checks after their first successful runs. Workflow files do not enforce branch protection themselves. Never commit credentials, personal drawings, or generated Xcode/Playgrounds state.
 
 The project is MIT licensed. Submit only code and documents you have permission to contribute.

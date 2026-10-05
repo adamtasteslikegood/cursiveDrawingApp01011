@@ -25,7 +25,7 @@ Analyzer `targetText` alignment, fixed timing feedback, segmentation accuracy, t
 
 Run `python3 scripts/check_repository.py` and `./scripts/lint.sh` for repository/source changes. On macOS run `./scripts/build.sh` and `./scripts/test.sh` for app changes. Test scripts compile the exact analyzer plus test fragment in one file to access file-private helpers without modifying app visibility. Add meaningful behavioral regression tests when fixing analysis.
 
-CI runs macOS iOS builds and simulator tests. CodeQL Swift uses manual generic-iOS compilation; do not replace it with host autobuild. Dependabot currently covers Actions only. Review current workflow results before declaring readiness.
+CI runs macOS iOS builds and simulator tests. CodeQL Swift uses manual generic-iOS compilation; do not replace it with host autobuild. Keep GitHub default CodeQL setup disabled while the custom advanced workflow is enabled. Dependabot currently covers Actions only. Review current workflow results before declaring readiness.
 
 For UI changes use `docs/device-validation.md`; CI success does not prove iPad behavior. On Linux report unavailable Apple checks explicitly.
 
