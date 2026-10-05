@@ -1,0 +1,4 @@
+name: Active iOS prototype security analysis
+# The manual build selects active app sources; archived Swift files are never compiled.
+queries:
+  - uses: security-extended
