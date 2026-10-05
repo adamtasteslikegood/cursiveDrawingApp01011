@@ -10,6 +10,9 @@ permissions:
   contents: read
   security-events: write
   actions: read
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   swift:
     name: Swift
@@ -17,6 +20,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Resolve app package before enabling compiler tracing
+        working-directory: CursivePrototype.swiftpm
+        run: xcodebuild -resolvePackageDependencies -scheme CursivePrototype
       - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           languages: swift
