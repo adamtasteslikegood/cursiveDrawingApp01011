@@ -39,4 +39,5 @@ jobs:
         with:
           name: iOS-test-results
           path: .build/*.xcresult
+          include-hidden-files: true
           if-no-files-found: ignore
