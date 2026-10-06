@@ -11,7 +11,7 @@ boundaries = [
     ('struct LetterReport', '/// Main analyzer entrypoint'),
     ('private struct Preprocessor', '// MARK: - Vision helpers'),
 ]
-parts = ['import Foundation\n']
+parts = ['import Foundation\n', (ROOT / 'CursivePrototype.swiftpm/PracticeLesson.swift').read_text()]
 for start, end in boundaries:
     first = source.index(start)
     last = source.index(end, first)

@@ -39,6 +39,8 @@ struct AnalysisReport: Codable {
   let timestamp: Date
   let overallScore: Double
   let letters: [LetterReport]
+  var practice: PracticeFeedback? = nil
+  var recognitionNote: String? = nil
 }
 
 /// Main analyzer entrypoint
@@ -62,6 +64,7 @@ final class CursiveAnalyzer {
   ///   - completion: returns AnalysisReport or error
   func analyze(
     drawing: PKDrawing, targetText: String,
+    lesson: PracticeLesson? = nil, guide: WritingGuide? = nil,
     completion: @escaping (Result<AnalysisReport, Error>) -> Void
   ) {
     DispatchQueue.global(qos: .userInitiated).async {
@@ -73,17 +76,28 @@ final class CursiveAnalyzer {
         let image = drawing.asImage(backgroundColor: .white, scale: 3.0)
 
         // 3. run VNRecognizeTextRequest to get letter bounding boxes (word/letter anchors)
-        let observations = try VisionHelpers.recognizeTextObservations(in: image)
+        let observations: [VNRecognizedTextObservation]
+        var recognitionNote: String?
+        do { observations = try VisionHelpers.recognizeTextObservations(in: image) } catch {
+          observations = []
+          recognitionNote =
+            "OCR was unavailable. Practice feedback still compares your ink with the displayed model."
+        }
 
         // Vision boxes are converted from the cropped raster back to drawing coordinates.
         let anchors = VisionHelpers.characterAnchors(from: observations)
         let letterSegments = Segmenter.segment(
           strokes: strokes, anchors: anchors, cropBounds: drawing.bounds)
-        let report = ReportBuilder.build(
+        var report = ReportBuilder.build(
           strokes: strokes, segments: letterSegments, targetText: targetText,
           cropBounds: drawing.bounds, templates: self.templates)
+        if let lesson, let guide {
+          report.practice = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+        }
+        report.recognitionNote = recognitionNote
+        let completedReport = report
         DispatchQueue.main.async {
-          completion(.success(report))
+          completion(.success(completedReport))
         }
       } catch {
         DispatchQueue.main.async {
@@ -477,13 +491,16 @@ private struct ReportBuilder {
           "Expected '\(item.expected!)', recognized '\(segment.recognizedString ?? "?")'.")
       }
       if valid {
-        let hints: [(Double, String)] = [
-          (shape, "Shape differs from the teacher template; practice the model letter."),
+        var hints: [(Double, String)] = [
           (features.slantScore, "Practice a consistent slant with the guide-lines."),
           (features.proportionScore, "Practice letter height relative to the writing line."),
           (features.connectionScore, "Practice smooth joins between letters."),
           (features.curvatureScore, "Practice smoother loops."),
         ]
+        if let expected = item.expected, templates[expected] != nil {
+          hints.append(
+            (shape, "Shape differs from the registered template; practice the model letter."))
+        }
         if weighted < 75, let worst = hints.min(by: { $0.0 < $1.0 }) {
           notes.append(worst.1)
         } else if notes.isEmpty {

@@ -294,3 +294,154 @@ final class ReviewRegressionTests: XCTestCase {
     }
   }
 #endif
+
+final class LessonTests: XCTestCase {
+  private let canvas = CGSize(width: 700, height: 320)
+
+  func testEveryLessonReferenceCanScoreOneHundred() {
+    for lesson in PracticeLesson.all {
+      let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+      let result = LessonScorer.evaluate(
+        strokes: [lesson.referencePoints(in: guide)], lesson: lesson, guide: guide)
+      XCTAssertEqual(result.score, 100, accuracy: 0.001, lesson.word)
+      XCTAssertEqual(result.shape, 100, accuracy: 0.001)
+    }
+  }
+
+  func testGuidesAndModelsFitCompactAndLargeCanvases() {
+    for size in [CGSize(width: 288, height: 220), canvas, CGSize(width: 1100, height: 360)] {
+      for lesson in PracticeLesson.all {
+        let guide = WritingGuide(size: size, wordWidth: lesson.width)
+        XCTAssertEqual(guide.middle, (guide.top + guide.baseline) / 2)
+        XCTAssertGreaterThan(guide.top, 0)
+        XCTAssertLessThan(guide.descender, size.height)
+        for point in lesson.referencePoints(in: guide) {
+          XCTAssertGreaterThanOrEqual(point.x, 0)
+          XCTAssertLessThanOrEqual(point.x, size.width)
+          XCTAssertGreaterThanOrEqual(point.y, 0)
+          XCTAssertLessThanOrEqual(point.y, size.height)
+        }
+      }
+    }
+  }
+
+  func testVerticalMovementChangesPositionWithoutInventingShapeError() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let points = lesson.referencePoints(in: guide).map { CGPoint(x: $0.x, y: $0.y + guide.height) }
+    let result = LessonScorer.evaluate(strokes: [points], lesson: lesson, guide: guide)
+    XCTAssertEqual(result.shape, 100, accuracy: 0.001)
+    XCTAssertEqual(result.placement, 0, accuracy: 0.001)
+    XCTAssertTrue(result.notes.contains { $0.contains("highlighted band") })
+  }
+
+  func testUniformSizeChangePreservesShapeButLowersHeightMatch() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let points = lesson.referencePoints(in: guide).map {
+      CGPoint(
+        x: canvas.width / 2 + ($0.x - canvas.width / 2) * 0.4,
+        y: canvas.height / 2 + ($0.y - canvas.height / 2) * 0.4)
+    }
+    let result = LessonScorer.evaluate(strokes: [points], lesson: lesson, guide: guide)
+    XCTAssertEqual(result.shape, 100, accuracy: 0.001)
+    XCTAssertLessThan(result.size, 30)
+    XCTAssertTrue(result.notes.contains { $0.contains("taller") })
+  }
+
+  func testWrongWordAndAspectDistortionLowerShapeMatch() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let wrong = LessonScorer.evaluate(
+      strokes: [PracticeLesson.all[1].referencePoints(in: guide)], lesson: lesson, guide: guide)
+    XCTAssertLessThan(wrong.shape, 80)
+    let distorted = lesson.referencePoints(in: guide).map { CGPoint(x: $0.x * 0.2, y: $0.y) }
+    let result = LessonScorer.evaluate(strokes: [distorted], lesson: lesson, guide: guide)
+    XCTAssertLessThan(result.shape, 80)
+  }
+
+  func testEmptyAndDegenerateInkProduceFiniteZeroFeedback() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    for strokes in [[], [[CGPoint.zero]], [[CGPoint.zero, CGPoint.zero]]] as [[[CGPoint]]] {
+      let result = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+      XCTAssertEqual(result.score, 0)
+      XCTAssertTrue(result.score.isFinite)
+      XCTAssertTrue(result.notes.contains { $0.contains("whole word") })
+    }
+  }
+
+  func testGeometryDoesNotClaimStrokeDirectionOrSpeed() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let reversed = Array(lesson.referencePoints(in: guide).reversed())
+    let result = LessonScorer.evaluate(strokes: [reversed], lesson: lesson, guide: guide)
+    XCTAssertEqual(result.shape, 100, accuracy: 0.001)
+    XCTAssertFalse(result.notes.contains { $0.contains("speed") || $0.contains("stroke order") })
+  }
+
+  func testSparseAndDenseSamplingGiveSimilarShapeScores() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let reference = lesson.referencePoints(in: guide)
+    let sparse =
+      stride(from: 0, to: reference.count, by: 4).map { reference[$0] } + [reference.last!]
+    let result = LessonScorer.evaluate(strokes: [sparse], lesson: lesson, guide: guide)
+    XCTAssertGreaterThan(result.shape, 97)
+  }
+
+  func testSeparateStrokeChunksRetainReferenceGeometry() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let reference = lesson.referencePoints(in: guide)
+    let split = reference.count / 2
+    let result = LessonScorer.evaluate(
+      strokes: [Array(reference[...split]), Array(reference[split...])], lesson: lesson,
+      guide: guide)
+    XCTAssertGreaterThan(result.shape, 97)
+  }
+
+  func testPracticeFeedbackRoundTripsWithAnalyzerReport() throws {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let feedback = LessonScorer.evaluate(
+      strokes: [lesson.referencePoints(in: guide)], lesson: lesson, guide: guide)
+    let report = AnalysisReport(
+      timestamp: Date(), overallScore: 20, letters: [], practice: feedback)
+    let decoded = try JSONDecoder().decode(AnalysisReport.self, from: JSONEncoder().encode(report))
+    XCTAssertEqual(decoded.practice?.score, 100)
+    XCTAssertEqual(decoded.overallScore, 20)  // Recognition diagnostics remain separate.
+  }
+}
+
+#if canImport(PencilKit)
+  final class LessonIntegrationTests: XCTestCase {
+    func testReferenceDrawingScoresHighlyThroughRealAnalyzer() {
+      let lesson = PracticeLesson.all[0]
+      let guide = WritingGuide(size: CGSize(width: 700, height: 320), wordWidth: lesson.width)
+      let points = lesson.referencePoints(in: guide).enumerated().map { index, point in
+        PKStrokePoint(
+          location: point, timeOffset: Double(index) / 100,
+          size: CGSize(width: 4, height: 4), opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+      }
+      let stroke = PKStroke(
+        ink: PKInk(.pen, color: .black),
+        path: PKStrokePath(controlPoints: points, creationDate: Date()), transform: .identity,
+        mask: nil)
+      let finished = expectation(description: "Real drawing analyzed")
+      CursiveAnalyzer.shared.analyze(
+        drawing: PKDrawing(strokes: [stroke]), targetText: lesson.word,
+        lesson: lesson, guide: guide
+      ) { result in
+        switch result {
+        case .success(let report):
+          XCTAssertNotNil(report.practice)
+          XCTAssertGreaterThan(report.practice?.score ?? 0, 98)
+        case .failure(let error): XCTFail("\(error)")
+        }
+        finished.fulfill()
+      }
+      wait(for: [finished], timeout: 30)
+    }
+  }
+#endif

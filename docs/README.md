@@ -13,3 +13,6 @@ Documents below are unique by exact SHA-256 content. Similar exports with differ
 The approximately 1,500-line conversation exports contain the original design discussion. Future specification work should compare the exports before choosing authoritative requirements. See [device-validation.md](device-validation.md) for manual acceptance checks.
 
 [Prototype review fixes](review-fixes.md) records the confirmed Copilot findings, corrective behavior, and regression tests.
+
+- [iPad baseline evaluation](ipad-baseline-evaluation.md): user acceptance of the refreshed 1.0 runtime and requested lesson improvements.
+- [Guided lesson prototype 1.1](lesson-prototype.md): current lessons, illustrative models, scoring meaning, and device acceptance limits.
