@@ -1,25 +1,20 @@
-# Ignore node_modules directory
-node_modules/
-
-# Ignore log files
-*.log
-
-# Ignore environment variable files
+# Apple and Swift generated files
+.DS_Store
+.swiftpm/
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcresult
+# Local tooling, secrets, and outputs
 .env
-
-# Ignore build directories
+.env.*
+!.env.example
+*.log
 dist/
 build/
-
-# Ignore operating system files
-.DS_Store
-Thumbs.db
-
-# Ignore temporary files
-*.tmp
+node_modules/
+.idea/
+.vscode/
 *.swp
 *.swo
-
-# Ignore IDE files
-.vscode/
-.idea/
