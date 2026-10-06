@@ -5,8 +5,9 @@ import Foundation
 struct PracticeLesson: Identifiable, Equatable {
   let word: String
   let focus: String
+  var set: Int = 1
   var id: String { word }
-  static let revision = "Lesson prototype 1.1 · 2026-10-05"
+  static let revision = "Lesson prototype 1.2 · 2026-10-06"
   static let all = [
     PracticeLesson(
       word: "loop",
@@ -18,18 +19,36 @@ struct PracticeLesson: Identifiable, Equatable {
       focus:
         "Let h and both l letters reach the top. Keep e and o between the dashed line and baseline."
     ),
+    PracticeLesson(
+      word: "hope", focus: "Use tall h, round o, a descending p, and a small e.", set: 2),
+    PracticeLesson(
+      word: "help", focus: "Keep e small; h and l reach the top, and p drops below the baseline.",
+      set: 2),
+    PracticeLesson(
+      word: "peel", focus: "Connect the two small e loops before finishing with a tall l.", set: 2),
+    PracticeLesson(
+      word: "heel", focus: "Keep both e loops in the lower band between tall h and l.", set: 3),
+    PracticeLesson(word: "hole", focus: "Join tall h to small o, then tall l to small e.", set: 3),
+    PracticeLesson(
+      word: "pole", focus: "Let p descend, keep o and e small, and raise l to the top.", set: 3),
   ]
 
-  var modelPoints: [CGPoint] {
-    var result: [CGPoint] = []
+  var primer: PrimerDescriptor { .prototype }
+
+  var letters: [LessonLetterModel] {
     var offset: CGFloat = 0
-    for character in word {
+    return word.enumerated().map { index, character in
       let glyph = ModelGlyph.glyph(character)
-      result += glyph.points.map { CGPoint(x: $0.x + offset, y: $0.y) }
+      let result = LessonLetterModel(
+        id: index, letter: String(character),
+        startX: offset, endX: offset + glyph.width,
+        points: glyph.points.map { CGPoint(x: $0.x + offset, y: $0.y) })
       offset += glyph.width
+      return result
     }
-    return result
   }
+
+  var modelPoints: [CGPoint] { letters.flatMap { $0.points } }
 
   var width: CGFloat { word.reduce(0) { $0 + ModelGlyph.glyph($1).width } }
 
@@ -38,6 +57,39 @@ struct PracticeLesson: Identifiable, Equatable {
       CGPoint(x: guide.originX + $0.x * guide.height, y: guide.top + $0.y * guide.height)
     }
   }
+}
+
+/// Identity travels with lesson models; no external curriculum assets are adopted.
+struct PrimerDescriptor: Equatable {
+  let id: String
+  let name: String
+  let revision: String
+  let provenance: String
+  static let prototype = PrimerDescriptor(
+    id: "prototype-cursive", name: "Prototype primer",
+    revision: "1", provenance: "Hand-authored project paths; educational review pending")
+}
+
+struct LessonLetterModel: Identifiable {
+  let id: Int
+  let letter: String
+  let startX: CGFloat
+  let endX: CGFloat
+  let points: [CGPoint]
+}
+
+struct LetterPracticeFeedback: Codable, Identifiable {
+  let id: Int
+  let letter: String
+  let shape: Double?
+  let note: String
+  let incomingJoin: JoinPracticeFeedback?
+}
+
+struct JoinPracticeFeedback: Codable {
+  let combination: String
+  let continuousInk: Bool
+  let note: String
 }
 
 struct WritingGuide: Equatable {
@@ -139,6 +191,9 @@ struct PracticeFeedback: Codable {
   let placement: Double
   let size: Double
   let notes: [String]
+  var letters: [LetterPracticeFeedback]? = nil
+  var primerID: String? = nil
+  var primerRevision: String? = nil
 }
 
 /// Geometry-only practice feedback; does not infer speed, joins, stroke order, or educational mastery.
@@ -153,7 +208,13 @@ struct LessonScorer {
     else {
       return PracticeFeedback(
         score: 0, shape: 0, placement: 0, size: 0,
-        notes: ["Write the whole word before evaluating."])
+        notes: ["Write the whole word before evaluating."],
+        letters: lesson.letters.map {
+          LetterPracticeFeedback(
+            id: $0.id, letter: $0.letter,
+            shape: nil, note: "Not enough ink to estimate this letter.", incomingJoin: nil)
+        },
+        primerID: lesson.primer.id, primerRevision: lesson.primer.revision)
     }
     // Uniform fitting keeps aspect ratio; translation and overall size are judged separately.
     let scale = min(
@@ -198,7 +259,82 @@ struct LessonScorer {
     }
     return PracticeFeedback(
       score: shape * 0.60 + placement * 0.20 + size * 0.20,
-      shape: shape, placement: placement, size: size, notes: notes)
+      shape: shape, placement: placement, size: size, notes: notes,
+      letters: letterFeedback(fitted: fitted, lesson: lesson, guide: guide),
+      primerID: lesson.primer.id, primerRevision: lesson.primer.revision)
+  }
+
+  private static func letterFeedback(
+    fitted: [[CGPoint]], lesson: PracticeLesson, guide: WritingGuide
+  )
+    -> [LetterPracticeFeedback]
+  {
+    let models = lesson.letters
+    return models.map { model in
+      let left = guide.originX + model.startX * guide.height
+      let right = guide.originX + model.endX * guide.height
+      let clipped = fitted.flatMap { LetterWindow.clip($0, left: left, right: right) }
+      let actual = sample(clipped)
+      let reference = sample([
+        model.points.map {
+          CGPoint(x: guide.originX + $0.x * guide.height, y: guide.top + $0.y * guide.height)
+        }
+      ])
+      let hasInk = clipped.contains { stroke in
+        zip(stroke, stroke.dropFirst()).contains {
+          hypot($0.1.x - $0.0.x, $0.1.y - $0.0.y) > guide.height * 0.01
+        }
+      }
+      let shape: Double? =
+        hasInk
+        ? clamp(
+          100
+            * (1 - max(
+              0,
+              (meanNearest(actual, reference) + meanNearest(reference, actual))
+                / 2 / guide.height - 0.015) / 0.14)) : nil
+      let note: String
+      if let shape {
+        note =
+          shape >= 75
+          ? "Ink follows this part of the model."
+          : "Compare this letter's loops and height with the model; try its trace guide."
+      } else {
+        note = "Not enough ink in this expected region to estimate the letter."
+      }
+      let join: JoinPracticeFeedback?
+      if model.id > 0 {
+        let combination = models[model.id - 1].letter + model.letter
+        let continuous = fitted.contains { stroke in
+          LetterWindow.clip(
+            stroke, left: left - guide.height * 0.10, right: left + guide.height * 0.10
+          )
+          .contains { piece in
+            guard piece.contains(where: { $0.x < left - guide.height * 0.02 }),
+              piece.contains(where: { $0.x > left + guide.height * 0.02 })
+            else { return false }
+            return zip(piece, piece.dropFirst()).contains { start, end in
+              guard abs(end.x - start.x) > 0.0001 else { return false }
+              let t = (left - start.x) / (end.x - start.x)
+              guard t >= 0 && t <= 1 else { return false }
+              let y = start.y + (end.y - start.y) * t
+              return abs(y - guide.baseline) <= guide.height * 0.15
+            }
+          }
+        }
+        join = JoinPracticeFeedback(
+          combination: combination, continuousInk: continuous,
+          note: continuous
+            ? "A recorded stroke crosses this model boundary near the baseline."
+            : "No continuous stroke was found across this model boundary. An ink gap or pen lift may be intentional; inspect the example."
+        )
+      } else {
+        join = nil
+      }
+      return LetterPracticeFeedback(
+        id: model.id, letter: model.letter, shape: shape,
+        note: note, incomingJoin: join)
+    }
   }
 
   private static func clamp(_ value: Double) -> Double { min(100, max(0, value)) }
@@ -262,5 +398,49 @@ struct LessonScorer {
           min(nearest, hypot(Double(point.x - candidate.x), Double(point.y - candidate.y)))
         }
     } / Double(a.count)
+  }
+}
+
+/// Clip actual polyline edges to model X windows without inventing ink across pen lifts.
+struct LetterWindow {
+  static func clip(_ stroke: [CGPoint], left: CGFloat, right: CGFloat) -> [[CGPoint]] {
+    var pieces: [[CGPoint]] = []
+    var current: [CGPoint] = []
+    for (a, b) in zip(stroke, stroke.dropFirst()) {
+      let dx = b.x - a.x
+      var low: CGFloat = 0
+      var high: CGFloat = 1
+      if abs(dx) < 0.0001 {
+        if a.x < left || a.x > right {
+          if !current.isEmpty {
+            pieces.append(current)
+            current = []
+          }
+          continue
+        }
+      } else {
+        let t1 = (left - a.x) / dx
+        let t2 = (right - a.x) / dx
+        low = max(0, min(t1, t2))
+        high = min(1, max(t1, t2))
+        if low > high {
+          if !current.isEmpty {
+            pieces.append(current)
+            current = []
+          }
+          continue
+        }
+      }
+      let start = CGPoint(x: a.x + dx * low, y: a.y + (b.y - a.y) * low)
+      let end = CGPoint(x: a.x + dx * high, y: a.y + (b.y - a.y) * high)
+      if let last = current.last, hypot(last.x - start.x, last.y - start.y) > 0.0001 {
+        pieces.append(current)
+        current = []
+      }
+      if current.isEmpty { current.append(start) }
+      current.append(end)
+    }
+    if !current.isEmpty { pieces.append(current) }
+    return pieces
   }
 }

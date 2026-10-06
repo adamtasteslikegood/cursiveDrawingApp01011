@@ -2,3 +2,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 swift format lint --strict --recursive CursivePrototype.swiftpm Tests
+
+python3 scripts/export-primer.py --check

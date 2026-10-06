@@ -2,11 +2,11 @@
 
 An iOS Swift Playgrounds prototype for practicing cursive handwriting with PencilKit and receiving experimental feedback from Vision and stroke geometry.
 
-Version **1.1** offers **loop**, **pool**, and **hello**, with a centered writing band, labeled solid/dashed guides, a target thumbnail, an optional trace guide, and a replay demonstration. The canvas supports PencilKit tools, Clear, and Evaluate. The visible version/date label identifies this lesson iteration on the iPad.
+Version **1.2** offers three sets: **loop/pool/hello**, **hope/help/peel**, and **heel/hole/pole**, with a centered writing band, labeled solid/dashed guides, a target thumbnail, an optional trace guide, and a replay demonstration. The canvas supports PencilKit tools, Clear, and Evaluate. The visible version/date and provisional primer labels identify this iteration. Experimental letter rows show local model matches and observed joins; OCR stays separate. See [the 1.2 analysis guide](docs/letter-analysis-prototype.md).
 
 The primary **Practice match** compares actual ink with the displayed model's geometry and reports shape, vertical position, and height separately. OCR is shown as a separate recognition check. Models, weights, and feedback are experimental and do not establish educational mastery, timing, joins, or stroke-order accuracy. See [the lesson guide](docs/lesson-prototype.md) for scoring details and limitations.
 
-The user confirmed the refreshed **1.0 baseline** runs and evaluates handwriting on an iPad, while reporting low scores and missing tutorial cues; see [the baseline evaluation](docs/ipad-baseline-evaluation.md). The user subsequently accepted the core 1.1 UI and scoring consistency on the same iPad; [the 1.1 evaluation](docs/ipad-lesson-1.1-evaluation.md) records the evidence and the still-experimental per-letter analysis.
+The user confirmed the refreshed **1.0 baseline** runs and evaluates handwriting on an iPad, while reporting low scores and missing tutorial cues; see [the baseline evaluation](docs/ipad-baseline-evaluation.md). The user subsequently accepted the core 1.1 UI and scoring consistency on the same iPad; the new 1.2 analysis requires its own trial; [the 1.1 evaluation](docs/ipad-lesson-1.1-evaluation.md) records the evidence and the still-experimental per-letter analysis.
 
 Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -16,13 +16,13 @@ Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instruc
 | --- | --- |
 | `CursivePrototype.swiftpm/` | Active, standalone Swift Playgrounds app package, one level below root |
 | `docs/` | Unique historical conversation and troubleshooting documents, indexed by content hash |
-| `specs/` | Reserved for future plan, roadmap, and design documents |
+| `specs/` | Plan, roadmap, and design drafts reflecting the user’s next direction and open primer decisions |
 | `Tests/` | Analyzer regression tests, compiled with the actual app analyzer source |
 | `scripts/` | Build, test, lint, and repository validation entry points |
 | `.github/` | CI, CodeQL, Dependabot, and contribution templates |
 | `backups/legacy/` | Preserved original sources, scripts, documents, and duplicate packages |
 
-The confirmed prototype review bugs and their regression coverage are documented in [docs/review-fixes.md](docs/review-fixes.md).
+The [primer comparison](docs/primer-decisions.md) and [source-derived letter visual](docs/primer-reference.svg) describe the current model and educational-source options. The confirmed prototype review bugs and their regression coverage are documented in [docs/review-fixes.md](docs/review-fixes.md).
 
 ## Development checks
 

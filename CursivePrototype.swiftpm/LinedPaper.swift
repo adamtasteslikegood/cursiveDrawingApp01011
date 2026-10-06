@@ -67,6 +67,7 @@ struct ReferenceWord: View {
 
 struct LessonThumbnail: View {
   let lesson: PracticeLesson
+  var thumbnailWidth: CGFloat = 180
 
   var body: some View {
     GeometryReader { geometry in
@@ -76,7 +77,7 @@ struct LessonThumbnail: View {
         ReferenceWord(points: lesson.referencePoints(in: guide), lineWidth: 2)
       }
     }
-    .frame(width: 180, height: 88)
+    .frame(width: thumbnailWidth, height: 88)
     .clipShape(RoundedRectangle(cornerRadius: 8))
     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.blue.opacity(0.3)))
     .accessibilityLabel("Illustrative cursive example: \(lesson.word)")

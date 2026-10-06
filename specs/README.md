@@ -1,9 +1,5 @@
-# Specifications
+# Specifications and planning drafts
 
-Reserved for the next planning sessions:
+The user's 2026-10-06 direction is recorded in [plan.md](plan.md), [roadmap.md](roadmap.md), and [design.md](design.md). They distinguish current implementation, device-accepted 1.1 behavior, requested lesson families, and proposed future interfaces. The user chose to compare Zaner-Bloser and Handwriting Without Tears before adopting a primary educational primer; no curriculum/style is selected yet.
 
-- `plan.md`: accepted implementation plan and acceptance criteria.
-- `roadmap.md`: prototype milestones toward the proof of concept.
-- `design.md`: distilled product and technical design from the historical conversation.
-
-These files have intentionally not been generated yet. The original conversation is preserved in `docs/`; it is reference material, not a claim that all described behavior is implemented.
+These drafts do not make unimplemented features or educational validation accepted requirements. Historical conversation/code remains in `docs/`; device evidence and source decisions are linked there.
