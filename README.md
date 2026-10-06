@@ -16,13 +16,13 @@ Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instruc
 | --- | --- |
 | `CursivePrototype.swiftpm/` | Active, standalone Swift Playgrounds app package, one level below root |
 | `docs/` | Unique historical conversation and troubleshooting documents, indexed by content hash |
-| `specs/` | Plan, roadmap, and design drafts reflecting the user’s next direction and open primer decisions |
+| `specs/` | Plan, roadmap, and design drafts reflecting the user’s next direction and remaining primer alignment work |
 | `Tests/` | Analyzer regression tests, compiled with the actual app analyzer source |
 | `scripts/` | Build, test, lint, and repository validation entry points |
 | `.github/` | CI, CodeQL, Dependabot, and contribution templates |
 | `backups/legacy/` | Preserved original sources, scripts, documents, and duplicate packages |
 
-The [primer comparison](docs/primer-decisions.md) and [source-derived letter visual](docs/primer-reference.svg) describe the current model and educational-source options. The confirmed prototype review bugs and their regression coverage are documented in [docs/review-fixes.md](docs/review-fixes.md).
+The [primer comparison](docs/primer-decisions.md) and [source-derived letter visual](docs/primer-reference.svg) describe the current model and the user-selected Zaner-Bloser instructional reference. The runtime curves remain provisional pending alignment. The confirmed prototype review bugs and their regression coverage are documented in [docs/review-fixes.md](docs/review-fixes.md).
 
 ## Development checks
 

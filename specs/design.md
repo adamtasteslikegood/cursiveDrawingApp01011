@@ -14,6 +14,10 @@ Partial masks are sampled by visible PencilKit ranges and kept separate. OCR rem
 
 Use a typed lesson kind and explicit text/occurrence tokens rather than passing spaces, punctuation, or unknown letters into the current glyph builder. A combination sub-lesson references its parent word and occurrence range; its entry/exit context comes from that word. Phrase/sentence lessons need word boundaries, spaces, capitals, punctuation, and line/baseline assignment before scoring. Do not implement them by concatenating unsupported characters into the existing one-line model.
 
+## Selected instructional reference
+
+The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. Current `prototype-cursive` revision 1 remains accurate until that implementation work is complete.
+
 ## Proposed primer record
 
 Persist primer ID/revision and provenance with each lesson and result. An adopted record should supply guide ratios, reviewed letter variants, ordered strokes, allowed pen lifts, entry/exit anchors, contextual join rules, acceptable deviations, source/reuse status, and review/calibration metadata. A selectable primer swaps rendering, lesson construction, and scoring together. Do not expose a selector for a primer whose assets/rules are absent.

@@ -12,7 +12,7 @@ Visible revision: `Lesson prototype 1.2 · 2026-10-06`; package version 1.2, bun
 
 The three sets reuse five lowercase models, e/h/l/o/p. Both set and word changes clear the canvas/results. Trace toggling, replay automatically enabling the overlay, and the original whole-word shape/position/height score are retained.
 
-The app and serialized feedback identify `prototype-cursive`, revision 1. This is the existing hand-authored project model, not a named educational curriculum. The [primer visual](primer-reference.svg) is exported from source; regenerate/check it with `python3 scripts/export-primer.py` / `--check`. The user chose to [compare Zaner-Bloser and Handwriting Without Tears first](primer-decisions.md). No publisher assets or selectable external primer are introduced.
+The app and serialized feedback identify `prototype-cursive`, revision 1. This is the existing hand-authored project model, not a named educational curriculum. The [primer visual](primer-reference.svg) is exported from source; regenerate/check it with `python3 scripts/export-primer.py` / `--check`. The user has [selected Zaner-Bloser as the primary instructional reference](primer-decisions.md); alignment of the runtime curves and feedback remains future work. No publisher assets or selectable external primer are introduced.
 
 ## Experimental per-letter feedback
 

@@ -19,4 +19,4 @@ The approximately 1,500-line conversation exports contain the original design di
 
 - [Guided lesson 1.1 iPad evaluation](ipad-lesson-1.1-evaluation.md): accepted UI/scoring consistency and requested next direction.
 
-- [Primer comparison and decisions](primer-decisions.md), [source-derived primer visual](primer-reference.svg), and [1.2 letter analysis](letter-analysis-prototype.md): current prototype evidence and open educational choices.
+- [Primer comparison and decisions](primer-decisions.md), [source-derived primer visual](primer-reference.svg), and [1.2 letter analysis](letter-analysis-prototype.md): current prototype evidence, the Zaner-Bloser selection, and remaining alignment work.

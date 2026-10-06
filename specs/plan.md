@@ -1,12 +1,12 @@
 # Plan — guided analysis iteration
 
-Status: implementation plan for the user's 2026-10-06 direction; the user chose to compare Zaner-Bloser and Handwriting Without Tears first; educational primer adoption remains open. Runtime acceptance of 1.1 is recorded in `docs/ipad-lesson-1.1-evaluation.md`.
+Status: implementation plan for the user's 2026-10-06 direction; the user adopted Zaner-Bloser as the primary instructional reference for now after comparison; model alignment and validation remain open. Runtime acceptance of 1.1 is recorded in `docs/ipad-lesson-1.1-evaluation.md`.
 
 ## This iteration
 
 1. Merge PR #4 with the user's successful device evaluation.
 2. Preserve the accepted whole-word score, three initial words, replay/trace behavior, and standalone app package.
-3. Identify the existing primer and render its five supported letters directly from code. Compare authoritative educational references in `docs/primer-decisions.md` without importing publisher assets or claiming accreditation.
+3. Identify the existing primer and render its five supported letters directly from code. Record the Zaner-Bloser selection and model-alignment work in `docs/primer-decisions.md` without importing publisher assets or claiming accreditation.
 4. Add two sets of three single words using the existing glyphs: hope/help/peel and heel/hole/pole.
 5. Add occurrence-based, explicitly experimental per-letter geometric estimates and observed join continuity. Use expected model windows after whole-word fitting, not OCR as a segmentation truth. Withhold estimates when usable ink is absent; do not treat pen lifts as automatically incorrect.
 6. Respect visible PencilKit mask ranges so partial erasure does not create synthetic connecting ink.
