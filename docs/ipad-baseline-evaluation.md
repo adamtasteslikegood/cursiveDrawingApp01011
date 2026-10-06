@@ -14,6 +14,18 @@ The user requested the next iteration to provide a centered writing band with so
 
 ## Acceptance and limits
 
-This confirms the refreshed package launches and evaluates handwriting on an actual iPad. It does not establish scoring accuracy or completion of every device-checklist item. iPad model, iPadOS version, Swift Playgrounds version, input device, and individual sample drawings/scores were not provided and are not inferred.
+This confirms the refreshed package launches and evaluates handwriting on an actual iPad. It does not establish scoring accuracy or completion of every device-checklist item. Individual sample drawings/scores were not provided and are not inferred. The user supplied the device details below after the original baseline record merged; version strings are recorded as reported.
 
 The evaluated package predates any new lesson changes. The next package requires a separate device evaluation; keep this report as the baseline record.
+
+## Device details supplied by the user
+
+| Field | Reported value |
+| --- | --- |
+| Device | iPad Pro M4, 13-inch |
+| Storage/connectivity | 512 GB, Wi-Fi |
+| Input | Apple Pencil Pro |
+| OS | iPadOS 27.2 |
+| Swift Playgrounds | 4.7 (2088) |
+
+These details describe the baseline trial, not device acceptance of the new guided lesson iteration.

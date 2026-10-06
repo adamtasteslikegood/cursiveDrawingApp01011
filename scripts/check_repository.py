@@ -17,7 +17,7 @@ def main():
         'specs/README.md', 'CursivePrototype.swiftpm/Package.swift',
         'CursivePrototype.swiftpm/MyApp.swift', 'CursivePrototype.swiftpm/ContentView.swift',
         'CursivePrototype.swiftpm/CursiveAnalyzer.swift', 'CursivePrototype.swiftpm/LinedPaper.swift',
-        'CursivePrototype.swiftpm/EvaluationState.swift',
+        'CursivePrototype.swiftpm/EvaluationState.swift', 'CursivePrototype.swiftpm/PracticeLesson.swift',
         '.github/workflows/ci.yml', '.github/workflows/codeql.yml', '.github/dependabot.yml',
     ]
     for relative in required:

@@ -5,7 +5,9 @@
 1. Clone or download this repository.
 2. Transfer the entire `CursivePrototype.swiftpm` folder to your iPad (Files or AirDrop).
 3. Open the package in Swift Playgrounds and run it. The manifest targets iOS 16 or later; use a current Playgrounds version compatible with your iPad.
-4. Write “loop” using Apple Pencil or touch, tap Evaluate, and inspect feedback. Clear resets the drawing and results.
+4. Confirm the on-screen label reads **Lesson prototype 1.1 · 2026-10-05**. Choose loop, pool, or hello; changing words clears the drawing.
+5. Use the thumbnail and Replay example. Small-letter bodies sit in the highlighted band between the dashed middle line and solid baseline; tall letters reach the top solid line, and p descends below the baseline.
+6. Trace the optional blue guide with Apple Pencil or touch, tap Evaluate, and inspect shape/position/height feedback and OCR separately. Clear resets the drawing and results. Try again with Trace guide off.
 
 Use only the root-level package; packages under `backups/legacy/` are historical copies.
 
@@ -41,4 +43,4 @@ To apply formatting, run `swift format format --in-place --recursive CursiveProt
 
 CI produces a downloadable playground ZIP; device validation is still required before calling a prototype ready.
 
-Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
+Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact lesson models and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.

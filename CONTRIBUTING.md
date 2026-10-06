@@ -1,6 +1,6 @@
 # Contributing
 
-Create a focused branch from current `main`. Until prototype PR #1 and the repository setup land, changes that depend on the prototype must include that branch or be stacked on it; state the dependency in the PR.
+Create a focused branch from current `main`; the prototype and repository setup are merged. State any new PR dependency explicitly.
 
 The active app is `CursivePrototype.swiftpm`. Preserve the standalone Playgrounds package and iOS 16 minimum unless a change explicitly calls for updating them. Keep historical files under `backups/legacy/` unchanged. Put unique reference documents in `docs/`; future accepted plans belong in `specs/`.
 
@@ -13,7 +13,7 @@ The active app is `CursivePrototype.swiftpm`. Preserve the standalone Playground
 python3 scripts/check_repository.py
 ```
 
-Swift's formatter is the enforced lint tool. Format only active Swift sources and tests. Add regression coverage when changing analyzer behavior. Tests append the unmodified analyzer and evaluation-state sources and test code into a temporary test target, allowing coverage of its file-private helpers without changing the app's public API or introducing app dependencies. This is an initial harness; move to a shared core when architecture work warrants it.
+Swift's formatter is the enforced lint tool. Format only active Swift sources and tests. Add regression coverage when changing analyzer behavior. Tests append the unmodified lesson-model, analyzer, and evaluation-state sources and test code into a temporary test target, allowing coverage of its file-private helpers without changing the app's public API or introducing app dependencies. This is an initial harness; move to a shared core when architecture work warrants it.
 
 Use the PR template, explain the user-visible change, and report exactly which checks ran. Include screenshots and the [device checklist](docs/device-validation.md) for UI changes. Linux checks do not establish iOS build or iPad acceptance.
 
@@ -31,4 +31,4 @@ Maintainers should configure required checks after their first successful runs. 
 
 The project is MIT licensed. Submit only code and documents you have permission to contribute.
 
-Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
+Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact lesson models and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
