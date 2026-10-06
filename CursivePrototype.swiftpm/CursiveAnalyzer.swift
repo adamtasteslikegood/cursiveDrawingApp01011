@@ -126,7 +126,11 @@ private struct StrokeExtractor {
       for stroke in drawing.strokes {
         if stroke.mask != nil {
           // Keep visible ranges separate: partial erasure must not manufacture a join.
-          for range in stroke.maskedPathRanges {
+          // Resolve the pretransform mask in path coordinates. On iOS 18.5,
+          // maskedPathRanges can lose intersections when the stroke is translated.
+          var pathSpaceStroke = stroke
+          pathSpaceStroke.transform = .identity
+          for range in pathSpaceStroke.maskedPathRanges {
             let points = stroke.path.interpolatedPoints(in: range, by: .distance(2))
               .map { $0.location.applying(stroke.transform) }
             if !points.isEmpty { all.append(points) }

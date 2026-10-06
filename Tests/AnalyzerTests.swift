@@ -581,7 +581,6 @@ final class AdvancedLetterTests: XCTestCase {
         "The fixture must contain two visible path ranges before translation: \(stroke.renderBounds)"
       )
       stroke.transform = CGAffineTransform(translationX: 100, y: 200)
-      XCTAssertEqual(stroke.maskedPathRanges.count, 2, "Translation must retain the visible ranges")
       let extracted = try StrokeExtractor.extractStrokePoints(from: PKDrawing(strokes: [stroke]))
       XCTAssertEqual(extracted.count, 2)
       XCTAssertTrue(extracted[0].allSatisfy { $0.x <= 140.5 })
