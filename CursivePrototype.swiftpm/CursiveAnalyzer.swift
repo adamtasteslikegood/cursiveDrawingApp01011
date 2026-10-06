@@ -2,7 +2,7 @@
 //  CursiveAnalyzer.swift
 //  CursiveTutorPrototype
 //
-//  Created by You on YYYY-MM-DD.
+//  Created by Adam Schoen and ChatGPT/Codex 4.x, 4o, and 6.1 sol on 2026-10-05 (latest version).
 //
 
 import CoreGraphics
