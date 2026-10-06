@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(CoreGraphics)
+  import CoreGraphics
+#endif
+
 /// Hand-authored prototype models, shared by the example, tracing guide, and practice comparison.
 /// These are illustrative paths, not validated teacher handwriting or stroke-order instruction.
 struct PracticeLesson: Identifiable, Equatable {
