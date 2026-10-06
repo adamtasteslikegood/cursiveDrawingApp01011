@@ -573,10 +573,15 @@ final class AdvancedLetterTests: XCTestCase {
       }
       let mask = UIBezierPath(rect: CGRect(x: -5, y: 20, width: 45, height: 20))
       mask.append(UIBezierPath(rect: CGRect(x: 60, y: 20, width: 45, height: 20)))
-      let stroke = PKStroke(
+      var stroke = PKStroke(
         ink: PKInk(.pen, color: .black),
-        path: PKStrokePath(controlPoints: points, creationDate: Date()),
-        transform: CGAffineTransform(translationX: 100, y: 200), mask: mask)
+        path: PKStrokePath(controlPoints: points, creationDate: Date()), mask: mask)
+      XCTAssertEqual(
+        stroke.maskedPathRanges.count, 2,
+        "The fixture must contain two visible path ranges before translation: \(stroke.renderBounds)"
+      )
+      stroke.transform = CGAffineTransform(translationX: 100, y: 200)
+      XCTAssertEqual(stroke.maskedPathRanges.count, 2, "Translation must retain the visible ranges")
       let extracted = try StrokeExtractor.extractStrokePoints(from: PKDrawing(strokes: [stroke]))
       XCTAssertEqual(extracted.count, 2)
       XCTAssertTrue(extracted[0].allSatisfy { $0.x <= 140.5 })
