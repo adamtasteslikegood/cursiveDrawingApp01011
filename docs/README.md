@@ -1,0 +1,15 @@
+# Reference documents
+
+The historical conversation includes the original analyzer and SwiftUI code and the intended product design. The active prototype remains the root-level Swift package.
+
+Documents below are unique by exact SHA-256 content. Similar exports with different content are retained separately; no semantic differences were discarded. `document-index.json` maps each canonical copy to every preserved original path and hash.
+
+- [original-design-conversation.md](original-design-conversation.md)
+- [original-design-conversation.pdf](original-design-conversation.pdf)
+- [conversation-export-variant.md](conversation-export-variant.md)
+- [conversation-web-export.md](conversation-web-export.md)
+- [prototype-troubleshooting.md](prototype-troubleshooting.md)
+
+The approximately 1,500-line conversation exports contain the original design discussion. Future specification work should compare the exports before choosing authoritative requirements. See [device-validation.md](device-validation.md) for manual acceptance checks.
+
+[Prototype review fixes](review-fixes.md) records the confirmed Copilot findings, corrective behavior, and regression tests.

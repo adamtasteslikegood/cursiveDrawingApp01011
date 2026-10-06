@@ -1,0 +1,42 @@
+[
+  {
+    "canonical": "docs/original-design-conversation.md",
+    "sha256": "8ce8518f430685e56970eb88fcba4e1add1758b2565b86af5db7ce99bf550a99",
+    "originals": [
+      "backups/legacy/OtherFiles/BackupOriginalFiles/untitled/ChatGPT-Cursive writing app idea copy.md",
+      "backups/legacy/OtherFiles/BackupOriginalFiles/untitled/ChatGPT-Cursive writing app idea.md",
+      "backups/legacy/OtherFiles/cursive cursive app files /ChatGPT-Cursive writing app idea.md",
+      "backups/legacy/OtherFiles/cursive cursive app files /untitled/ChatGPT-Cursive writing app idea copy.md",
+      "backups/legacy/OtherFiles/cursive cursive app files /untitled/ChatGPT-Cursive writing app idea.md"
+    ]
+  },
+  {
+    "canonical": "docs/original-design-conversation.pdf",
+    "sha256": "555113ad3489990160954c534673fbe103d2d7ba8c3e0214cd96bf20c169b1b4",
+    "originals": [
+      "backups/legacy/OtherFiles/BackupOriginalFiles/untitled/ChatGPT-Cursive writing app idea.pdf",
+      "backups/legacy/OtherFiles/cursive cursive app files /untitled/ChatGPT-Cursive writing app idea.pdf"
+    ]
+  },
+  {
+    "canonical": "docs/conversation-export-variant.md",
+    "sha256": "1a74a8cc4c0f903fccc8273cb76a67ec2684506193ae7e426767d1ccfc16adec",
+    "originals": [
+      "backups/legacy/OtherFiles/cursive cursive app files /cursiveconvo5.md"
+    ]
+  },
+  {
+    "canonical": "docs/conversation-web-export.md",
+    "sha256": "093940d883bc06aed1bdaca7d38fcdae50f0762c3f649b08b7265d93a3270f3f",
+    "originals": [
+      "backups/legacy/Skip to content.md"
+    ]
+  },
+  {
+    "canonical": "docs/prototype-troubleshooting.md",
+    "sha256": "62fcc6f57ce51f3bc6e6956fff7016ee47999a15ae2d97cb184994588dd33a10",
+    "originals": [
+      "backups/legacy/SwiftPlaygroundALPHA011/ErrrorAssitance.md"
+    ]
+  }
+]
