@@ -2,7 +2,8 @@
 //  CursiveAnalyzer.swift
 //  CursiveTutorPrototype
 //
-//  Created by Adam Schoen and ChatGPT/Codex 4.x, 4o, and 6.1 sol on 2026-10-05 (latest version).
+//  Created by Adam Schoen with assistance from ChatGPT and Codex.
+//  Model attribution: GPT-4.x, GPT-4o, and GPT-6.1 Sol. Updated 2026-10-05.
 //
 
 import CoreGraphics
