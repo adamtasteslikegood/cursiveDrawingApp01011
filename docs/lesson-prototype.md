@@ -30,4 +30,4 @@ Foundation-only tests cover all model words scoring 100, compact/large guide lay
 
 CI compilation and tests do not prove UI, Pencil, finger/scroll gesture, tool-picker, or real cursive recognition behavior. On the iPad, confirm the version label; try all three words with and without the trace guide; replay the example; rotate the device; use Clear and change lessons; and record OCR text and shape/position/height scores separately. Test a correctly placed word, a small copy, a word outside the band, and incomplete ink. Use [device-validation.md](device-validation.md) for the full checklist.
 
-Physical acceptance of the baseline is recorded separately. This lesson iteration requires a new device report before its UI and scoring behavior can be called accepted.
+Physical acceptance of the baseline is recorded separately. The user accepted the reported core UI and scoring-consistency behaviors in the [1.1 device evaluation](ipad-lesson-1.1-evaluation.md); advanced per-letter analysis remains work in progress. Unreported checklist cases and educational accuracy are not implied by this acceptance.

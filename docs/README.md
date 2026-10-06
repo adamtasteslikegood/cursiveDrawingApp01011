@@ -16,3 +16,5 @@ The approximately 1,500-line conversation exports contain the original design di
 
 - [iPad baseline evaluation](ipad-baseline-evaluation.md): user acceptance of the refreshed 1.0 runtime and requested lesson improvements.
 - [Guided lesson prototype 1.1](lesson-prototype.md): current lessons, illustrative models, scoring meaning, and device acceptance limits.
+
+- [Guided lesson 1.1 iPad evaluation](ipad-lesson-1.1-evaluation.md): accepted UI/scoring consistency and requested next direction.
