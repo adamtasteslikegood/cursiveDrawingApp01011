@@ -16,7 +16,8 @@ import Vision
 /// Result objects that will be JSON-serializable
 struct LetterReport: Codable {
   let letter: String
-  let boundingBox: CGRect  // normalized to [0,1] within the drawing image
+  let boundingBox: CGRect  // normalized crop-relative bounds, top-left origin
+  var recognizedLetter: String? = nil
   let finalScore: Double  // 0..100
   let featureScores: FeatureScores
   let notes: [String]
@@ -73,129 +74,13 @@ final class CursiveAnalyzer {
         // 3. run VNRecognizeTextRequest to get letter bounding boxes (word/letter anchors)
         let observations = try VisionHelpers.recognizeTextObservations(in: image)
 
-        // 4. segment strokes into letters using boxes + clustering heuristics
+        // Vision boxes are converted from the cropped raster back to drawing coordinates.
+        let anchors = VisionHelpers.characterAnchors(from: observations)
         let letterSegments = Segmenter.segment(
-          strokes: strokes, observations: observations, imageSize: image.size)
-
-        // 5. compute baseline and line metrics for the whole drawing
-        let baselineInfo = BaselineDetector.detectBaseline(from: strokes)
-
-        // 6. for each letter segment -> compute features & scores
-        var letterReports: [LetterReport] = []
-        var scoreSum: Double = 0
-        for seg in letterSegments {
-          // get intended letter mapping from recognition (best guess) or targetText fallback
-          let intendedLetter = seg.recognizedString?.lowercased() ?? "?"
-          let pts = Preprocessor.resampleAndSmooth(points: seg.points, spacing: 2.5)
-          let normalizedPts = CoordinateNormalizer.normalize(
-            points: pts, in: CGRect(origin: .zero, size: image.size))
-
-          // features
-          let slantDeg = FeatureExtractor.slantAngleDegrees(points: normalizedPts)
-          let curvatureVals = FeatureExtractor.curvatures(points: normalizedPts)
-          let curvatureSummary = curvatureVals.isEmpty ? 0.0 : curvatureVals.mean()
-          let bbox = seg.boundingBox ?? CGRect.zero
-          let proportions = FeatureExtractor.proportions(
-            points: normalizedPts, baselineInfo: baselineInfo, drawingSize: image.size)
-
-          // shape similarity (DTW) vs template if exists
-          let dtwScore: Double
-          if let template = self.templates[intendedLetter] {
-            // templates assumed normalized to 0..1 already
-            let dist = DTW.distance(sequenceA: normalizedPts, sequenceB: template)
-            // convert distance to similarity score heuristically
-            dtwScore = max(0, 100 - (dist * 1000))  // adjust scale based on your templates
-          } else {
-            dtwScore = 50  // neutral when no template
-          }
-
-          // legibility via Vision: compare recognized char to intended char
-          let legibility: Double = {
-            guard let rec = seg.recognizedString?.lowercased() else { return 0.0 }
-            return rec == intendedLetter
-              ? 100.0 : (StringSimilarity.levenshteinSimilarity(a: intendedLetter, b: rec) * 100.0)
-          }()
-
-          // individual sub-scores (0..100)
-          // Target -20°, ± tolerance.
-          let slantScore = Scoring.slantScore(for: slantDeg, targetSlantDeg: -20, toleranceDeg: 10)
-          let proportionScore = Scoring.proportionScore(
-            xHeightRatio: proportions.xHeightRatio, ideal: 0.45, tolerance: 0.18)
-          let curvatureScore = Scoring.curvatureScore(meanCurvature: curvatureSummary)
-          let connectionScore = Scoring.connectionScore(for: seg, baselineInfo: baselineInfo)
-          let timingScore = Scoring.timingScore(for: seg)
-
-          // compose full score with weights
-          let weights = Scoring.Weights()
-          let finalScore =
-            weights.legibility * (legibility) + weights.shape * dtwScore + weights.slant
-            * slantScore + weights.proportion * proportionScore + weights.connection
-            * connectionScore + weights.curvature * curvatureScore + weights.timing * timingScore
-
-          let featureScores = FeatureScores(
-            legibilityScore: legibility,
-            shapeSimilarityScore: dtwScore,
-            slantScore: slantScore,
-            proportionScore: proportionScore,
-            connectionScore: connectionScore,
-            curvatureScore: curvatureScore,
-            timingScore: timingScore
-          )
-
-          // produce textual hints
-          var notes: [String] = []
-          if finalScore < 75 {
-            // find worst contributor
-            let map: [(String, Double)] = [
-              ("legibility", legibility),
-              ("shape", dtwScore),
-              ("slant", slantScore),
-              ("proportion", proportionScore),
-              ("connection", connectionScore),
-              ("curvature", curvatureScore),
-              ("timing", timingScore),
-            ]
-            if let worst = map.min(by: { $0.1 < $1.1 }) {
-              switch worst.0 {
-              case "slant":
-                notes.append(
-                  "Try angling your letters slightly more to the right; use slanted guide-lines.")
-              case "proportion":
-                notes.append("Work on letter height: midline should be about half of full height.")
-              case "connection":
-                notes.append(
-                  "Practice smooth joins between letters; avoid lifting at the connection.")
-              case "curvature":
-                notes.append("Loops are jagged — aim for smoother circular motions.")
-              case "legibility":
-                notes.append("Letter was misrecognized — focus on clear letter shape.")
-              case "shape":
-                notes.append("Shape differs from the model — follow the ghost animation carefully.")
-              case "timing":
-                notes.append("Try to keep a consistent, smooth writing speed.")
-              default:
-                notes.append("Keep practicing this letter with the guided drill.")
-              }
-            }
-          } else {
-            notes.append("Nice! Minor polish recommended.")
-          }
-
-          let letterReport = LetterReport(
-            letter: intendedLetter,
-            boundingBox: bbox,
-            finalScore: min(max(finalScore, 0.0), 100.0),
-            featureScores: featureScores,
-            notes: notes
-          )
-
-          letterReports.append(letterReport)
-          scoreSum += letterReport.finalScore
-        }
-
-        let overall = letterReports.isEmpty ? 0.0 : scoreSum / Double(letterReports.count)
-        let report = AnalysisReport(
-          timestamp: Date(), overallScore: overall, letters: letterReports)
+          strokes: strokes, anchors: anchors, cropBounds: drawing.bounds)
+        let report = ReportBuilder.build(
+          strokes: strokes, segments: letterSegments, targetText: targetText,
+          cropBounds: drawing.bounds, templates: self.templates)
         DispatchQueue.main.async {
           completion(.success(report))
         }
@@ -224,7 +109,7 @@ private struct StrokeExtractor {
         // PKStroke path is a collection of PKStrokePoints
         var pts: [CGPoint] = []
         for point in stroke.path {
-          pts.append(point.location)
+          pts.append(point.location.applying(stroke.transform))
         }
         if !pts.isEmpty {
           all.append(pts)
@@ -233,13 +118,17 @@ private struct StrokeExtractor {
       if !all.isEmpty { return all }
     }
 
+    guard !drawing.strokes.isEmpty else { throw StrokeExtractionError.cannotExtractPoints }
+
     // Fallback: rasterize the drawing and extract contours via Vision's contours request
     // (not as precise but works if direct sampling is unavailable)
     guard let image = drawing.asImage(backgroundColor: .white, scale: 3.0).cgImage else {
       throw StrokeExtractionError.cannotExtractPoints
     }
     let contours = try VisionHelpers.extractContours(from: image)
-    return contours
+    return contours.map { points in
+      points.map { DrawingCoordinates.point(fromVisionPoint: $0, in: drawing.bounds) }
+    }
   }
 }
 
@@ -338,92 +227,280 @@ private struct Segment {
   let recognizedString: String?
 }
 
-private struct Segmenter {
-  static func segment(
-    strokes: [[CGPoint]], observations: [VNRecognizedTextObservation], imageSize: CGSize
-  ) -> [Segment] {
-    // Build segments anchored by Vision boxes (word-level or character-level)
-    // Map each stroke to the box it intersects most strongly
-    var strokeAssigned = Array(repeating: false, count: strokes.count)
-    var boxToStrokes: [(obs: VNRecognizedTextObservation, strokesIdx: [Int])] = []
-    for obs in observations {
-      var assigned: [Int] = []
-      let bbox = VNImageRectForNormalizedRect(
-        obs.boundingBox, Int(imageSize.width), Int(imageSize.height))
-      for (i, stroke) in strokes.enumerated() {
-        // compute stroke bounding box
-        let sMinX = stroke.map { $0.x }.min() ?? 0
-        let sMaxX = stroke.map { $0.x }.max() ?? 0
-        let sMinY = stroke.map { $0.y }.min() ?? 0
-        let sMaxY = stroke.map { $0.y }.max() ?? 0
-        let sbox = CGRect(x: sMinX, y: sMinY, width: sMaxX - sMinX, height: sMaxY - sMinY)
-        if sbox.intersects(bbox) {
-          assigned.append(i)
-          strokeAssigned[i] = true
-        }
-      }
-      boxToStrokes.append((obs, assigned))
-    }
+private struct CharacterAnchor {
+  let character: String
+  let normalizedBox: CGRect  // Vision coordinates: bottom-left origin.
+}
 
-    // leftover strokes -> cluster by x-proximity into their own segments
-    var leftoverIndices: [Int] = []
-    for (i, used) in strokeAssigned.enumerated() {
-      if !used { leftoverIndices.append(i) }
-    }
-    // cluster leftover by centroid x
-    let leftoverClusters = clusterStrokeIndicesByX(leftoverIndices, strokes: strokes)
-
-    // build final segments
-    var segments: [Segment] = []
-
-    for (obs, idxs) in boxToStrokes {
-      var pts: [CGPoint] = []
-      for i in idxs { pts.append(contentsOf: strokes[i]) }
-      let bbox = VNImageRectForNormalizedRect(
-        obs.boundingBox, Int(imageSize.width), Int(imageSize.height))
-      let recognized = obs.topCandidates(1).first?.string
-      segments.append(Segment(points: pts, boundingBox: bbox, recognizedString: recognized))
-    }
-
-    for cluster in leftoverClusters {
-      var pts: [CGPoint] = []
-      for i in cluster { pts.append(contentsOf: strokes[i]) }
-      // derive bbox from points
-      let minX = pts.map { $0.x }.min() ?? 0
-      let minY = pts.map { $0.y }.min() ?? 0
-      let maxX = pts.map { $0.x }.max() ?? 0
-      let maxY = pts.map { $0.y }.max() ?? 0
-      let bbox = CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
-      segments.append(Segment(points: pts, boundingBox: bbox, recognizedString: nil))
-    }
-
-    // sort segments left-to-right for stability
-    segments.sort { ($0.boundingBox?.minX ?? 0) < ($1.boundingBox?.minX ?? 0) }
-    return segments
+private struct DrawingCoordinates {
+  static func point(fromVisionPoint point: CGPoint, in crop: CGRect) -> CGPoint {
+    CGPoint(x: crop.minX + point.x * crop.width, y: crop.minY + (1 - point.y) * crop.height)
   }
 
-  private static func clusterStrokeIndicesByX(_ indices: [Int], strokes: [[CGPoint]]) -> [[Int]] {
-    // simple single-linkage clustering by centroid x distance
-    let centroids = indices.map { i -> CGFloat in
-      let s = strokes[i]
-      guard !s.isEmpty else { return 0 }
-      return s.map { $0.x }.reduce(0, +) / CGFloat(s.count)
-    }
-    let zipped = zip(indices, centroids).sorted(by: { $0.1 < $1.1 })
-    var clusters: [[Int]] = []
-    var current: [Int] = []
-    var lastX: CGFloat? = nil
-    for (idx, x) in zipped {
-      if let lx = lastX, abs(x - lx) > 40 {  // threshold relative to canvas (adjust)
-        if !current.isEmpty { clusters.append(current) }
-        current = [idx]
+  static func rectangle(fromVisionBox box: CGRect, in crop: CGRect) -> CGRect {
+    CGRect(
+      x: crop.minX + box.minX * crop.width,
+      y: crop.minY + (1 - box.maxY) * crop.height,
+      width: box.width * crop.width, height: box.height * crop.height)
+  }
+
+  static func normalizedRectangle(_ box: CGRect, in crop: CGRect) -> CGRect {
+    guard crop.width > 0, crop.height > 0 else { return .zero }
+    return CGRect(
+      x: (box.minX - crop.minX) / crop.width,
+      y: (box.minY - crop.minY) / crop.height,
+      width: box.width / crop.width, height: box.height / crop.height)
+  }
+}
+
+/// Clip a line to a character box, including crossings with no sampled point inside it.
+private struct StrokeClipper {
+  static func interval(from a: CGPoint, to b: CGPoint, in box: CGRect) -> ClosedRange<CGFloat>? {
+    var lower: CGFloat = 0
+    var upper: CGFloat = 1
+    let dx = b.x - a.x
+    let dy = b.y - a.y
+    let edges: [(CGFloat, CGFloat)] = [
+      (-dx, a.x - box.minX), (dx, box.maxX - a.x),
+      (-dy, a.y - box.minY), (dy, box.maxY - a.y),
+    ]
+    for (direction, distance) in edges {
+      if direction == 0 {
+        if distance < 0 { return nil }
       } else {
-        current.append(idx)
+        let fraction = distance / direction
+        if direction < 0 { lower = max(lower, fraction) } else { upper = min(upper, fraction) }
+        if lower > upper { return nil }
       }
-      lastX = x
     }
-    if !current.isEmpty { clusters.append(current) }
-    return clusters
+    return lower...upper
+  }
+
+  static func point(from a: CGPoint, to b: CGPoint, fraction: CGFloat) -> CGPoint {
+    CGPoint(x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction)
+  }
+}
+
+private struct Segmenter {
+  static func segment(strokes: [[CGPoint]], anchors: [CharacterAnchor], cropBounds: CGRect)
+    -> [Segment]
+  {
+    let boxes = anchors.map {
+      DrawingCoordinates.rectangle(fromVisionBox: $0.normalizedBox, in: cropBounds)
+    }
+    var assigned = Array(repeating: [CGPoint](), count: anchors.count)
+    var leftovers: [[CGPoint]] = []
+    for stroke in strokes where !stroke.isEmpty {
+      var remaining: [CGPoint] = []
+      if stroke.count == 1 {
+        if let index = boxes.firstIndex(where: {
+          $0.insetBy(dx: -0.001, dy: -0.001).contains(stroke[0])
+        }) {
+          assigned[index].append(stroke[0])
+        } else {
+          leftovers.append(stroke)
+        }
+        continue
+      }
+      for (a, b) in zip(stroke, stroke.dropFirst()) {
+        let intervals = boxes.map { StrokeClipper.interval(from: a, to: b, in: $0) }
+        let cuts = Array(
+          Set(
+            [CGFloat(0), CGFloat(1)]
+              + intervals.compactMap { $0 }.flatMap { [$0.lowerBound, $0.upperBound] })
+        ).sorted()
+        for (lower, upper) in zip(cuts, cuts.dropFirst()) where upper > lower {
+          let middle = (lower + upper) / 2
+          let points = [
+            StrokeClipper.point(from: a, to: b, fraction: lower),
+            StrokeClipper.point(from: a, to: b, fraction: upper),
+          ]
+          // A piece belongs to one character, even when OCR boxes overlap.
+          if let index = intervals.firstIndex(where: { $0?.contains(middle) == true }) {
+            assigned[index].append(contentsOf: points)
+            if !remaining.isEmpty {
+              leftovers.append(remaining)
+              remaining = []
+            }
+          } else {
+            remaining.append(contentsOf: points)
+          }
+        }
+      }
+      if !remaining.isEmpty { leftovers.append(remaining) }
+    }
+    var result = zip(anchors.indices, anchors).map { index, anchor in
+      Segment(
+        points: assigned[index], boundingBox: boxes[index], recognizedString: anchor.character)
+    }
+    // Keep unknown ink as explicit extra/unknown segments; never assign a whole crossing stroke twice.
+    for cluster in clusterByX(leftovers) {
+      let points = cluster.flatMap { $0 }
+      result.append(Segment(points: points, boundingBox: bounds(of: points), recognizedString: nil))
+    }
+    // This prototype uses a single writing line; preserve left-to-right occurrence order.
+    result = result.enumerated().sorted {
+      let a = $0.element.boundingBox?.minX ?? 0
+      let b = $1.element.boundingBox?.minX ?? 0
+      return a == b ? $0.offset < $1.offset : a < b
+    }.map { $0.element }
+    return result
+  }
+
+  static func bounds(of points: [CGPoint]) -> CGRect {
+    guard let first = points.first else { return .zero }
+    let minX = points.map { $0.x }.min() ?? first.x
+    let maxX = points.map { $0.x }.max() ?? first.x
+    let minY = points.map { $0.y }.min() ?? first.y
+    let maxY = points.map { $0.y }.max() ?? first.y
+    return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+  }
+
+  private static func clusterByX(_ strokes: [[CGPoint]]) -> [[[CGPoint]]] {
+    let sorted = strokes.sorted { bounds(of: $0).midX < bounds(of: $1).midX }
+    var result: [[[CGPoint]]] = []
+    var last: CGRect?
+    for stroke in sorted {
+      let box = bounds(of: stroke)
+      if let previous = last, abs(box.midX - previous.midX) <= 40,
+        abs(box.midY - previous.midY) <= max(40, max(box.height, previous.height))
+      {
+        result[result.count - 1].append(stroke)
+      } else {
+        result.append([stroke])
+      }
+      last = box
+    }
+    return result
+  }
+}
+
+/// Minimum-edit alignment preserves omissions and insertions instead of scoring recognition against itself.
+private struct TargetAlignment {
+  struct Item {
+    let expected: String?
+    let segment: Segment?
+    var legibility: Double {
+      guard let expected, let recognized = segment?.recognizedString else { return 0 }
+      return StringSimilarity.levenshteinSimilarity(a: expected, b: recognized.lowercased()) * 100
+    }
+  }
+
+  static func align(_ segments: [Segment], targetText: String) -> [Item] {
+    let expected = targetText.lowercased().filter { !$0.isWhitespace }.map { String($0) }
+    let recognized = segments.map { $0.recognizedString?.lowercased() }
+    let n = expected.count
+    let m = segments.count
+    var costs = Array(repeating: Array(repeating: 0, count: m + 1), count: n + 1)
+    for i in 0...n { costs[i][0] = i }
+    for j in 0...m { costs[0][j] = j }
+    if n > 0, m > 0 {
+      for i in 1...n {
+        for j in 1...m {
+          let mismatch = expected[i - 1] == recognized[j - 1] ? 0 : 1
+          costs[i][j] = min(
+            costs[i - 1][j - 1] + mismatch, costs[i - 1][j] + 1, costs[i][j - 1] + 1)
+        }
+      }
+    }
+    var i = n
+    var j = m
+    var result: [Item] = []
+    while i > 0 || j > 0 {
+      if i > 0, j > 0,
+        costs[i][j] == costs[i - 1][j - 1] + (expected[i - 1] == recognized[j - 1] ? 0 : 1)
+      {
+        result.append(Item(expected: expected[i - 1], segment: segments[j - 1]))
+        i -= 1
+        j -= 1
+      } else if i > 0, costs[i][j] == costs[i - 1][j] + 1 {
+        result.append(Item(expected: expected[i - 1], segment: nil))
+        i -= 1
+      } else {
+        result.append(Item(expected: nil, segment: segments[j - 1]))
+        j -= 1
+      }
+    }
+    return result.reversed()
+  }
+}
+
+private struct ReportBuilder {
+  static func build(
+    strokes: [[CGPoint]], segments: [Segment], targetText: String,
+    cropBounds: CGRect, templates: [String: [CGPoint]], timestamp: Date = Date()
+  ) -> AnalysisReport {
+    let baseline = BaselineDetector.detectBaseline(from: strokes)
+    let letters = TargetAlignment.align(segments, targetText: targetText).map {
+      item -> LetterReport in
+      let segment = item.segment ?? Segment(points: [], boundingBox: nil, recognizedString: nil)
+      let points = Preprocessor.resampleAndSmooth(points: segment.points, spacing: 2.5)
+      let normalized = CoordinateNormalizer.normalize(points: points, in: cropBounds)
+      let curvatures = FeatureExtractor.curvatures(points: normalized)
+      let curvature = curvatures.isEmpty ? 0 : curvatures.reduce(0, +) / Double(curvatures.count)
+      // Physical angle and height must use drawing-space points, just like the baseline.
+      let slant = FeatureExtractor.slantAngleDegrees(points: points)
+      let proportions = FeatureExtractor.proportions(
+        points: points, baselineInfo: baseline, drawingSize: cropBounds.size)
+      let shape: Double
+      if let expected = item.expected, let template = templates[expected], !points.isEmpty {
+        shape = max(0, 100 - DTW.distance(sequenceA: normalized, sequenceB: template) * 1000)
+      } else {
+        shape = points.isEmpty ? 0 : 50
+      }
+      let features = FeatureScores(
+        legibilityScore: item.legibility, shapeSimilarityScore: shape,
+        slantScore: Scoring.slantScore(for: slant, targetSlantDeg: -20, toleranceDeg: 10),
+        proportionScore: Scoring.proportionScore(
+          xHeightRatio: proportions.xHeightRatio, ideal: 0.45, tolerance: 0.18),
+        connectionScore: Scoring.connectionScore(for: segment, baselineInfo: baseline),
+        curvatureScore: Scoring.curvatureScore(meanCurvature: curvature),
+        timingScore: Scoring.timingScore(for: segment))
+      let weights = Scoring.Weights()
+      let weighted =
+        weights.legibility * features.legibilityScore + weights.shape * shape
+        + weights.slant * features.slantScore + weights.proportion * features.proportionScore
+        + weights.connection * features.connectionScore + weights.curvature
+        * features.curvatureScore
+        + weights.timing * features.timingScore
+      let valid = item.expected != nil && item.segment != nil && !points.isEmpty
+      var notes: [String] = []
+      if item.expected == nil {
+        notes.append("Extra character or unrecognized ink; write only the requested text.")
+      } else if item.segment == nil {
+        notes.append("Missing '\(item.expected!)'; include every requested character.")
+      } else if points.isEmpty {
+        notes.append("No ink was associated with this recognized character.")
+      } else if item.legibility < 100 {
+        notes.append(
+          "Expected '\(item.expected!)', recognized '\(segment.recognizedString ?? "?")'.")
+      }
+      if valid {
+        let hints: [(Double, String)] = [
+          (shape, "Shape differs from the teacher template; practice the model letter."),
+          (features.slantScore, "Practice a consistent slant with the guide-lines."),
+          (features.proportionScore, "Practice letter height relative to the writing line."),
+          (features.connectionScore, "Practice smooth joins between letters."),
+          (features.curvatureScore, "Practice smoother loops."),
+        ]
+        if weighted < 75, let worst = hints.min(by: { $0.0 < $1.0 }) {
+          notes.append(worst.1)
+        } else if notes.isEmpty {
+          notes.append("Nice! Minor polish recommended.")
+        }
+      }
+      return LetterReport(
+        letter: item.expected ?? segment.recognizedString ?? "?",
+        boundingBox: segment.boundingBox.map {
+          DrawingCoordinates.normalizedRectangle($0, in: cropBounds)
+        } ?? .zero,
+        recognizedLetter: segment.recognizedString,
+        finalScore: valid ? min(max(weighted, 0), 100) : 0,
+        featureScores: features, notes: notes)
+    }
+    let score =
+      letters.isEmpty ? 0 : letters.reduce(0) { $0 + $1.finalScore } / Double(letters.count)
+    return AnalysisReport(timestamp: timestamp, overallScore: score, letters: letters)
   }
 }
 
@@ -474,7 +551,7 @@ private struct FeatureExtractor {
     return k
   }
 
-  /// Returns relative proportions (xHeightRatio etc.) after normalization
+  /// Both points and baseline metrics are in the same drawing-space units.
   static func proportions(points: [CGPoint], baselineInfo: BaselineInfo, drawingSize: CGSize) -> (
     xHeightRatio: Double, ascenderRatio: Double, descenderRatio: Double
   ) {
@@ -485,8 +562,10 @@ private struct FeatureExtractor {
     let xh = baselineInfo.xHeight
     let xHeightRatio = totalH > 0 ? Double(xh / totalH) : 0.0
     // asc/desc relative to xHeight
-    let asc = max(0.0, Double((baselineInfo.ascenderLine - baselineInfo.baselineY) / xh))
-    let desc = max(0.0, Double((baselineInfo.descenderLine - baselineInfo.baselineY) / xh))
+    let asc =
+      xh > 0 ? max(0.0, Double((baselineInfo.baselineY - baselineInfo.ascenderLine) / xh)) : 0
+    let desc =
+      xh > 0 ? max(0.0, Double((baselineInfo.descenderLine - baselineInfo.baselineY) / xh)) : 0
     return (xHeightRatio, asc, desc)
   }
 }
@@ -632,11 +711,37 @@ private struct VisionHelpers {
     guard let cg = image.cgImage else { return [] }
     let req = VNRecognizeTextRequest()
     req.recognitionLanguages = ["en-US"]
-    req.recognitionLevel = .accurate
+    // Fast recognition provides character-range boxes; accurate mode returns word boxes.
+    req.recognitionLevel = .fast
     req.usesLanguageCorrection = true
     let handler = VNImageRequestHandler(cgImage: cg, options: [:])
     try handler.perform([req])
     return req.results ?? []
+  }
+
+  static func characterAnchors(from observations: [VNRecognizedTextObservation])
+    -> [CharacterAnchor]
+  {
+    observations.flatMap { observation -> [CharacterAnchor] in
+      guard let candidate = observation.topCandidates(1).first else { return [] }
+      let text = candidate.string
+      let indices = Array(text.indices)
+      return indices.enumerated().compactMap { offset, index in
+        let character = text[index]
+        guard !character.isWhitespace else { return nil }
+        let range = index..<text.index(after: index)
+        let characterBox = try? candidate.boundingBox(for: range)
+        // Vision boxes are approximate. A missing box uses an explicit equal-width heuristic.
+        let word = observation.boundingBox
+        let width = word.width / CGFloat(max(1, indices.count))
+        let fallback = CGRect(
+          x: word.minX + CGFloat(offset) * width, y: word.minY,
+          width: width, height: word.height)
+        return CharacterAnchor(
+          character: String(character).lowercased(),
+          normalizedBox: characterBox?.boundingBox ?? fallback)
+      }
+    }
   }
 
   static func extractContours(from cgImage: CGImage) throws -> [[CGPoint]] {

@@ -11,3 +11,5 @@ Documents below are unique by exact SHA-256 content. Similar exports with differ
 - [prototype-troubleshooting.md](prototype-troubleshooting.md)
 
 The approximately 1,500-line conversation exports contain the original design discussion. Future specification work should compare the exports before choosing authoritative requirements. See [device-validation.md](device-validation.md) for manual acceptance checks.
+
+[Prototype review fixes](review-fixes.md) records the confirmed Copilot findings, corrective behavior, and regression tests.

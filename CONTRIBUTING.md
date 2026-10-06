@@ -13,7 +13,7 @@ The active app is `CursivePrototype.swiftpm`. Preserve the standalone Playground
 python3 scripts/check_repository.py
 ```
 
-Swift's formatter is the enforced lint tool. Format only active Swift sources and tests. Add regression coverage when changing analyzer behavior. Tests append the unmodified analyzer source and test code into a temporary test target, allowing coverage of its file-private helpers without changing the app's public API or introducing app dependencies. This is an initial harness; move to a shared core when architecture work warrants it.
+Swift's formatter is the enforced lint tool. Format only active Swift sources and tests. Add regression coverage when changing analyzer behavior. Tests append the unmodified analyzer and evaluation-state sources and test code into a temporary test target, allowing coverage of its file-private helpers without changing the app's public API or introducing app dependencies. This is an initial harness; move to a shared core when architecture work warrants it.
 
 Use the PR template, explain the user-visible change, and report exactly which checks ran. Include screenshots and the [device checklist](docs/device-validation.md) for UI changes. Linux checks do not establish iOS build or iPad acceptance.
 

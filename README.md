@@ -4,7 +4,7 @@ An iOS Swift Playgrounds prototype for practicing cursive handwriting with Penci
 
 The current lesson asks the learner to write **“loop”** on lined paper. The canvas supports PencilKit tools, Clear, and Evaluate. Evaluation displays recognized text, an overall score, and per-segment feedback.
 
-Scores are exploratory heuristics, not validated handwriting assessments. The current analyzer does not use `targetText` to align recognized letters with the requested phrase; timing is a fixed placeholder and shape comparison needs registered teacher templates. The full conversation describes future behavior beyond this prototype.
+Scores are exploratory heuristics, not validated handwriting assessments. Recognized characters are aligned with `targetText`; missing and extra characters affect the score. Timing is a fixed placeholder and shape comparison needs registered teacher templates. Character segmentation remains approximate and assumes a single left-to-right writing line. The full conversation describes future behavior beyond this prototype.
 
 Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -19,6 +19,8 @@ Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instruc
 | `scripts/` | Build, test, lint, and repository validation entry points |
 | `.github/` | CI, CodeQL, Dependabot, and contribution templates |
 | `backups/legacy/` | Preserved original sources, scripts, documents, and duplicate packages |
+
+The confirmed prototype review bugs and their regression coverage are documented in [docs/review-fixes.md](docs/review-fixes.md).
 
 ## Development checks
 

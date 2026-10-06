@@ -6,7 +6,7 @@ Cursive Prototype is an iOS-only Swift Playgrounds handwriting practice experime
 
 ## Layout
 
-- `CursivePrototype.swiftpm/`: active standalone app. `MyApp.swift` is the entry point, `ContentView.swift` contains the canvas and feedback UI, `LinedPaper.swift` draws guides, and `CursiveAnalyzer.swift` performs analysis.
+- `CursivePrototype.swiftpm/`: active standalone app. `MyApp.swift` is the entry point, `ContentView.swift` contains the canvas and feedback UI, `LinedPaper.swift` draws guides, `CursiveAnalyzer.swift` performs analysis, and `EvaluationState.swift` handles result transitions and occurrence-based feedback rows.
 - `Tests/`: analyzer regression test fragment and a standard test package manifest.
 - `scripts/`: canonical lint/build/test/integrity commands.
 - `docs/`: unique historical exports, provenance index, and device checklist.
@@ -19,11 +19,11 @@ Inspect current branch, status, PR dependencies, and source before editing. Pref
 
 Keep the app package standalone and one directory below root. The AppleProductTypes application manifest needs Xcode/Playgrounds; host `swift build` is not a valid iOS app check. Avoid dependencies or larger architecture changes during visual fixes unless requested.
 
-Analyzer `targetText` alignment, fixed timing feedback, segmentation accuracy, teacher templates, and repeated-letter UI identity are known prototype limitations. Do not describe them as implemented or validated. Read source and conversation before planning fixes.
+The analyzer aligns recognized characters to `targetText`, measures physical features in drawing coordinates, and splits continuous paths at OCR character boundaries. Feedback identity uses row occurrences. These behaviors have regression coverage; OCR and segmentation accuracy and educational scoring remain unvalidated. Timing is fixed, teacher templates need registration, and the current lesson assumes one left-to-right line. See `docs/review-fixes.md` and read source and conversation before planning further changes.
 
 ## Verification
 
-Run `python3 scripts/check_repository.py` and `./scripts/lint.sh` for repository/source changes. On macOS run `./scripts/build.sh` and `./scripts/test.sh` for app changes. Test scripts compile the exact analyzer plus test fragment in one file to access file-private helpers without modifying app visibility. Add meaningful behavioral regression tests when fixing analysis.
+Run `python3 scripts/check_repository.py` and `./scripts/lint.sh` for repository/source changes. On macOS run `./scripts/build.sh` and `./scripts/test.sh` for app changes. Test scripts compile the exact analyzer and evaluation-state sources plus test fragment in one file to access file-private helpers without modifying app visibility. Add meaningful behavioral regression tests when fixing analysis.
 
 CI runs macOS iOS builds and simulator tests. CodeQL Swift uses manual generic-iOS compilation; do not replace it with host autobuild. Keep GitHub default CodeQL setup disabled while the custom advanced workflow is enabled. Dependabot currently covers Actions only. Review current workflow results before declaring readiness.
 

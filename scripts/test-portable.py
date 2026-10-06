@@ -9,9 +9,7 @@ source = (ROOT / 'CursivePrototype.swiftpm/CursiveAnalyzer.swift').read_text()
 # Copy exact declarations. Missing boundaries deliberately fail rather than silently skipping tests.
 boundaries = [
     ('struct LetterReport', '/// Main analyzer entrypoint'),
-    ('private struct BaselineInfo', 'private struct BaselineDetector'),
-    ('private struct Segment {', 'private struct Segmenter {'),
-    ('private struct DTW', '// MARK: - Vision helpers'),
+    ('private struct Preprocessor', '// MARK: - Vision helpers'),
 ]
 parts = ['import Foundation\n']
 for start, end in boundaries:
@@ -22,6 +20,6 @@ harness = ROOT / '.build/portable-tests'
 tests = harness / 'Tests/AnalyzerTests'
 tests.mkdir(parents=True, exist_ok=True)
 (tests / 'AnalyzerTests.swift').write_text(
-    '\n'.join(parts) + (ROOT / 'Tests/AnalyzerTests.swift').read_text())
+    '\n'.join(parts) + (ROOT / 'CursivePrototype.swiftpm/EvaluationState.swift').read_text() + (ROOT / 'Tests/AnalyzerTests.swift').read_text())
 shutil.copy(ROOT / 'Tests/Package.swift', harness / 'Package.swift')
 subprocess.run(['swift', 'test', '--package-path', str(harness)], check=True)
