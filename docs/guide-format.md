@@ -30,7 +30,7 @@ Schema 1 intentionally cannot represent contextual glyph variants, bridging conn
 
 Select **Handwriting guide** and **Practice profile** in the app. **Import guide JSON** accepts a complete schema-1 file and selects it only after validation succeeds. Failed imports preserve the current guide, ink and results. Duplicate loaded guide IDs are rejected; use a distinct ID for a comparison draft. Changing guide/profile/lesson clears ink and results. Imports last for the running session. No credentials, network access or publisher assets are needed.
 
-Bundled files live inside `CursivePrototype.swiftpm/Guides/` and are copied as SwiftPM resources. Preserve that folder when transferring the package. `Bundle.module` loads app/test resources; the source-derived visual exporter runs the same decoder from the repository root.
+Bundled files live inside `CursivePrototype.swiftpm/Guides/` and are copied as SwiftPM resources. Preserve that folder when transferring the package. `Bundle.main` loads the AppleProductTypes app resources; `Bundle.module` loads standard SwiftPM test resources under the `CURSIVE_TESTS` compilation flag. The iOS build checks the copied files byte-for-byte; the source-derived visual exporter runs the same decoder from the repository root.
 
 ## Assessment and identity
 

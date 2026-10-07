@@ -75,7 +75,7 @@ struct PracticeLesson: Identifiable, Equatable {
   /// Flattened points are suitable for bounds/exports, never for drawing bridges between strokes.
   var modelPoints: [CGPoint] { modelStrokes.flatMap { $0 } }
   var width: CGFloat { word.reduce(0) { $0 + model.glyph(String($1))!.advance } }
-  var showsDescender: Bool { modelPoints.contains { $0.y > 1.08 } }
+  var showsDescender: Bool { modelPoints.contains { $0.y > 1 + 0.000001 } }
 
   func referenceStrokes(in guide: WritingGuide) -> [[CGPoint]] {
     modelStrokes.map { stroke in

@@ -301,8 +301,11 @@ enum GuideLibrary {
   static let all = [prototype, bundled("stroke-lab")]
 
   private static func bundled(_ name: String) -> HandwritingGuide {
-    #if SWIFT_PACKAGE
+    #if CURSIVE_TESTS
       let url = Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Guides")!
+    #elseif os(iOS)
+      // AppleProductTypes app playgrounds copy resources into the main app bundle.
+      let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: "Guides")!
     #else
       // The visual exporter compiles these exact sources outside SwiftPM from the repository root.
       let url = URL(fileURLWithPath: "CursivePrototype.swiftpm/Guides/\(name).json")

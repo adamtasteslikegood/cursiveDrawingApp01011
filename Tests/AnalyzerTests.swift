@@ -699,6 +699,28 @@ final class GuideFoundationTests: XCTestCase {
     // The shape is deliberately unchanged: accepting inventory data does not validate Spanish instruction.
   }
 
+  func testShortDescenderUsesNormalizedBaselineInsteadOfPrototypeThreshold() throws {
+    let model = try alteredGuide { object in
+      func compress(_ value: Any) -> Any {
+        if var point = value as? [String: Double], point["x"] != nil, let y = point["y"] {
+          point["y"] = y * 1.05 / 1.35
+          return point
+        }
+        if let fields = value as? [String: Any] { return fields.mapValues(compress) }
+        if let values = value as? [Any] { return values.map(compress) }
+        return value
+      }
+      object["glyphs"] = compress(object["glyphs"]!)
+      var lines = object["lines"] as! [String: Any]
+      lines["descender"] = 1.05
+      object["lines"] = lines
+    }
+    let lesson = PracticeLesson(word: "p", focus: "Short descender", model: model)
+    XCTAssertTrue(lesson.showsDescender)
+    XCTAssertLessThanOrEqual(lesson.modelPoints.map { $0.y }.max()!, 1.05 + 0.000001)
+    XCTAssertFalse(PracticeLesson.lessons(in: GuideLibrary.all[1])[0].showsDescender)
+  }
+
   func testInvalidLinesAssessmentGeometryAndJoinsAreRejected() {
     XCTAssertThrowsError(
       try alteredGuide { object in
