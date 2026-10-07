@@ -721,6 +721,32 @@ final class GuideFoundationTests: XCTestCase {
     XCTAssertFalse(PracticeLesson.lessons(in: GuideLibrary.all[1])[0].showsDescender)
   }
 
+  func testImportedGuidesRequireVisibleLabelsAndInstructions() {
+    for value in ["", " \n\t "] {
+      for field in ["topLabel", "middleLabel", "baselineLabel"] {
+        XCTAssertThrowsError(
+          try alteredGuide { object in
+            var lines = object["lines"] as! [String: Any]
+            lines[field] = value
+            object["lines"] = lines
+          })
+      }
+      for (collection, fields) in [
+        ("profiles", ["name", "instruction"]), ("glyphs", ["instruction"]),
+        ("lessons", ["instruction"]),
+      ] {
+        for field in fields {
+          XCTAssertThrowsError(
+            try alteredGuide { object in
+              var rows = object[collection] as! [[String: Any]]
+              rows[0][field] = value
+              object[collection] = rows
+            })
+        }
+      }
+    }
+  }
+
   func testInvalidLinesAssessmentGeometryAndJoinsAreRejected() {
     XCTAssertThrowsError(
       try alteredGuide { object in

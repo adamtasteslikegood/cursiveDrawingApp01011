@@ -180,9 +180,17 @@ struct HandwritingGuide: Codable, Equatable, Identifiable {
         && lines.midline > 0 && lines.midline < 1 && lines.descender >= 1 && lines.descender <= 2,
       "Guide lines must have 0 < midline < 1 and 1 <= descender <= 2.")
     try require(
+      [lines.topLabel, lines.middleLabel, lines.baselineLabel].allSatisfy {
+        !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      }, "All three guide-line labels are required.")
+    try require(
       unique(profiles.map { $0.id }) && profiles.count <= 16,
       "Profiles need unique IDs (1–16 profiles).")
     for profile in profiles {
+      try require(
+        [profile.name, profile.instruction].allSatisfy {
+          !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }, "Profile names and instructions must contain visible text.")
       let a = profile.assessment
       try require(a.algorithm == "geometry-v1", "Unsupported assessment algorithm: \(a.algorithm).")
       try require(
@@ -202,6 +210,9 @@ struct HandwritingGuide: Codable, Equatable, Identifiable {
     }
     try require(pointCount <= 65536, "Guide geometry exceeds 65,536 sampled points.")
     for glyph in glyphs {
+      try require(
+        !glyph.instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        "Glyph instructions must contain visible text.")
       try require(
         glyph.symbol.count == 1 && !glyph.symbol.contains(where: { $0.isWhitespace }),
         "Each glyph must be one non-whitespace grapheme.")
@@ -262,6 +273,9 @@ struct HandwritingGuide: Codable, Equatable, Identifiable {
       unique(lessons.map { $0.id }) && lessons.count <= 128,
       "Lessons need unique IDs (1–128 lessons).")
     for lesson in lessons {
+      try require(
+        !lesson.instruction.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        "Lesson instructions must contain visible text.")
       try require(
         !lesson.text.isEmpty && lesson.text.count <= 32 && lesson.set > 0 && lesson.set <= 128,
         "Lessons need 1–32 glyphs and a set number from 1–128.")

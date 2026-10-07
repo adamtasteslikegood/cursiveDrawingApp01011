@@ -42,6 +42,6 @@ No profile repairs the known false positives in `geometry-v1`. See [scoring evid
 
 ## Validation limits and checks
 
-Imports read at most 1 MB plus one overflow byte. Limits are 256 glyphs, 8 strokes per glyph, 64 curves per stroke, 16 profiles, 4,096 joins, 128 lessons, 32 graphemes per lesson, 65,536 sampled points per guide and 16,384 per lesson. Positive advances, visible stroke length, lesson vertical extent, unique IDs/symbols, supported algorithms, bounded tolerances, required fields and complete lesson coverage are checked before use.
+Imports read at most 1 MB plus one overflow byte. Limits are 256 glyphs, 8 strokes per glyph, 64 curves per stroke, 16 profiles, 4,096 joins, 128 lessons, 32 graphemes per lesson, 65,536 sampled points per guide and 16,384 per lesson. Positive advances, visible stroke length, lesson vertical extent, unique IDs/symbols, supported algorithms, bounded tolerances, required fields, nonblank guide labels/profile names/instructions and complete lesson coverage are checked before use.
 
 Run `python3 scripts/test-portable.py` for malformed models, new glyph inventory, lifted and raised connections, profile identity, serialization and baseline comparison. `./scripts/test.sh` additionally covers Apple frameworks. `python3 scripts/export-primer.py --check` verifies the five-letter visual against the loaded model. UI import, selection, replay and device scoring still require the [iPad checklist](device-validation.md).
