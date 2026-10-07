@@ -3,7 +3,7 @@
 //  CursiveTutorPrototype
 //
 //  Created by Adam Schoen with assistance from ChatGPT and Codex.
-//  Model attribution: GPT-4.x, GPT-4o, and GPT-6.1 Sol. Updated 2026-10-05.
+//  Model attribution: GPT-4.x, GPT-4o, and GPT-6.1 Sol. Updated 2026-10-06.
 //
 
 import CoreGraphics
@@ -110,8 +110,11 @@ final class CursiveAnalyzer {
 
 // MARK: - Stroke extraction
 
-enum StrokeExtractionError: Error {
+enum StrokeExtractionError: LocalizedError {
   case cannotExtractPoints
+  var errorDescription: String? {
+    "No visible ink could be measured. Write a word and evaluate again."
+  }
 }
 
 private struct StrokeExtractor {
@@ -121,6 +124,19 @@ private struct StrokeExtractor {
     var all: [[CGPoint]] = []
     if !drawing.strokes.isEmpty {
       for stroke in drawing.strokes {
+        if stroke.mask != nil {
+          // Keep visible ranges separate: partial erasure must not manufacture a join.
+          // Resolve the pretransform mask in path coordinates. On iOS 18.5,
+          // maskedPathRanges can lose intersections when the stroke is translated.
+          var pathSpaceStroke = stroke
+          pathSpaceStroke.transform = .identity
+          for range in pathSpaceStroke.maskedPathRanges {
+            let points = stroke.path.interpolatedPoints(in: range, by: .distance(2))
+              .map { $0.location.applying(stroke.transform) }
+            if !points.isEmpty { all.append(points) }
+          }
+          continue
+        }
         // PKStroke path is a collection of PKStrokePoints
         var pts: [CGPoint] = []
         for point in stroke.path {
@@ -131,6 +147,9 @@ private struct StrokeExtractor {
         }
       }
       if !all.isEmpty { return all }
+      if drawing.strokes.contains(where: { $0.mask != nil }) {
+        throw StrokeExtractionError.cannotExtractPoints
+      }
     }
 
     guard !drawing.strokes.isEmpty else { throw StrokeExtractionError.cannotExtractPoints }

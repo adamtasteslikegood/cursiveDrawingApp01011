@@ -6,6 +6,7 @@ struct ContentView: View {
   @State private var canvasView = AttachedWritingCanvas()
   @State private var toolPicker = PKToolPicker()
   @State private var evaluation = EvaluationState()
+  @State private var setID = 1
   @State private var lessonID = PracticeLesson.all[0].id
   @State private var showsTrace = true
   @State private var replayID = 0
@@ -23,8 +24,22 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
           Text("Cursive practice").font(.largeTitle.bold())
           Text(PracticeLesson.revision).font(.caption).foregroundColor(.secondary)
+          Text("\(lesson.primer.name) · revision \(lesson.primer.revision)")
+            .font(.caption).foregroundColor(.secondary)
+          Picker("Word set", selection: $setID) {
+            Text("Set 1").tag(1)
+            Text("Set 2").tag(2)
+            Text("Set 3").tag(3)
+          }
+          .pickerStyle(.segmented)
+          .disabled(evaluation.isAnalyzing)
+          .onChange(of: setID) { value in
+            lessonID = PracticeLesson.all.first { $0.set == value }!.id
+          }
           Picker("Practice word", selection: $lessonID) {
-            ForEach(PracticeLesson.all) { item in Text(item.word).tag(item.id) }
+            ForEach(PracticeLesson.all.filter { $0.set == setID }) { item in
+              Text(item.word).tag(item.id)
+            }
           }
           .pickerStyle(.segmented)
           .disabled(evaluation.isAnalyzing)
@@ -147,7 +162,16 @@ struct ContentView: View {
         if let note = report.recognitionNote { Text(note).font(.caption) }
         Text("OCR is a separate check; a shape match does not prove the word is correct.")
           .font(.caption).foregroundColor(.secondary)
-        DisclosureGroup("Experimental character diagnostics") {
+        DisclosureGroup("Experimental letter and join analysis") {
+          Text(
+            "Guided estimates use expected model regions. They do not identify letters or validate stroke order; pen lifts may be intentional."
+          )
+          .font(.caption).foregroundColor(.secondary)
+          ForEach(practice.letters ?? []) { letter in
+            letterRow(letter)
+          }
+        }
+        DisclosureGroup("OCR character diagnostics") {
           ForEach(report.rows) { row in
             VStack(alignment: .leading, spacing: 4) {
               Text("Expected \(row.report.letter) · Read \(row.report.recognizedLetter ?? "—")")
@@ -167,6 +191,31 @@ struct ContentView: View {
     } else if !evaluation.feedback.isEmpty {
       Text(evaluation.feedback).foregroundColor(.red)
     }
+  }
+
+  private func letterRow(_ letter: LetterPracticeFeedback) -> some View {
+    VStack(alignment: .leading, spacing: 5) {
+      HStack {
+        LessonThumbnail(
+          lesson: PracticeLesson(word: letter.letter, focus: "Letter model"),
+          thumbnailWidth: 100)
+        VStack(alignment: .leading) {
+          Text("Letter \(letter.id + 1): \(letter.letter)").font(.headline)
+          Text("Expected model").font(.caption).foregroundColor(.secondary)
+        }
+      }
+      if let shape = letter.shape {
+        Text("Model shape: \(Int(shape.rounded()))/100").font(.subheadline)
+      }
+      Text(letter.note).font(.caption)
+      if let join = letter.incomingJoin {
+        Text(
+          "Join \(join.combination): \(join.continuousInk ? "continuous ink observed" : "inspect the connection")"
+        )
+        .font(.subheadline)
+        Text(join.note).font(.caption).foregroundColor(.secondary)
+      }
+    }.padding(.vertical, 6)
   }
 
   private func clearCanvas() {

@@ -2,7 +2,7 @@
 
 Record package commit, iPad model, iPadOS version, Swift Playgrounds version, and input device for each run.
 
-- Open the root-level package and launch without errors; confirm `Lesson prototype 1.1 · 2026-10-05` is visible.
+- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.2 · 2026-10-06` for this iteration).
 - Confirm lined paper and canvas remain usable in portrait and landscape, including compact iPhone landscape; scroll the full lesson to reach controls and all results.
 - On first launch and after window reattachment, confirm the tool picker appears; write with touch and Apple Pencil where available and check pen and eraser.
 - Evaluate a nonempty drawing; confirm drawing, erasing, and lasso edits are blocked while analyzing, then resume after completion; confirm feedback matches the frozen ink.
@@ -27,3 +27,13 @@ Keep findings in the PR. Scores, timing, teacher templates, and target-text alig
 - Try Apple Pencil and finger input; verify the surrounding lesson scrolls without moving/zooming the canvas guides relative to ink.
 - Rotate during evaluation; the result should be discarded with a request to evaluate again. Confirm rotation after evaluation clears stale feedback.
 - Verify tool-picker availability and resumed editing after successful and failed evaluation.
+
+## Primer/letter iteration 1.2
+
+- Confirm all three sets contain the expected three words; changing sets/words clears ink and feedback.
+- Confirm primer name/revision are visible; word/letter examples use the same illustrative forms.
+- Expand letter analysis for all nine words; repeated letters need separate occurrence rows and thumbnails.
+- Distort one small letter while retaining the other letters; compare its regional feedback with intact neighbours. Try omitting a middle letter and record any misleading window assignments.
+- Compare a continuous word stroke with separate letter strokes whose endpoints touch; inspect join evidence without assuming pen lifts are incorrect.
+- Erase part of a stroke with the partial/bitmap eraser and reevaluate; erased gaps must not appear as continuous recorded joins. Fully erased input should prompt for measurable ink.
+- Confirm the accepted replay/toggle interaction and whole-word score consistency remain intact. Record region estimates separately from OCR and educational correctness.

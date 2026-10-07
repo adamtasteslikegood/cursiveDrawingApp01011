@@ -14,7 +14,8 @@ def digest(path):
 def main():
     required = [
         'README.md', 'QUICKSTART.md', 'CONTRIBUTING.md', 'LICENSE', 'AGENTS.md',
-        'specs/README.md', 'CursivePrototype.swiftpm/Package.swift',
+        'specs/README.md', 'specs/plan.md', 'specs/roadmap.md', 'specs/design.md',
+        'docs/primer-reference.svg', 'docs/primer-decisions.md', 'scripts/export-primer.py', 'CursivePrototype.swiftpm/Package.swift',
         'CursivePrototype.swiftpm/MyApp.swift', 'CursivePrototype.swiftpm/ContentView.swift',
         'CursivePrototype.swiftpm/CursiveAnalyzer.swift', 'CursivePrototype.swiftpm/LinedPaper.swift',
         'CursivePrototype.swiftpm/EvaluationState.swift', 'CursivePrototype.swiftpm/PracticeLesson.swift',

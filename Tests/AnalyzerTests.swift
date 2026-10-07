@@ -445,3 +445,148 @@ final class LessonTests: XCTestCase {
     }
   }
 #endif
+
+final class AdvancedLetterTests: XCTestCase {
+  private let canvas = CGSize(width: 700, height: 320)
+
+  func testNineWordsInThreeSetsUseOneIdentifiedPrimer() {
+    XCTAssertEqual(PracticeLesson.all.count, 9)
+    XCTAssertEqual(Set(PracticeLesson.all.map { $0.id }).count, 9)
+    for set in 1...3 { XCTAssertEqual(PracticeLesson.all.filter { $0.set == set }.count, 3) }
+    XCTAssertEqual(Set(PracticeLesson.all.map { $0.primer.id }), ["prototype-cursive"])
+  }
+
+  func testEveryReferenceHasOneHighMatchRowPerExpectedOccurrence() {
+    for lesson in PracticeLesson.all {
+      let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+      let result = LessonScorer.evaluate(
+        strokes: [lesson.referencePoints(in: guide)], lesson: lesson, guide: guide)
+      let rows = result.letters!
+      XCTAssertEqual(rows.map { $0.letter }.joined(), lesson.word)
+      XCTAssertEqual(Set(rows.map { $0.id }).count, lesson.word.count)
+      XCTAssertEqual(result.primerID, lesson.primer.id)
+      XCTAssertEqual(result.primerRevision, lesson.primer.revision)
+      for row in rows { XCTAssertGreaterThan(row.shape ?? 0, 98, "\(lesson.word) \(row.id)") }
+      XCTAssertEqual(rows.compactMap { $0.incomingJoin }.count, lesson.word.count - 1)
+      XCTAssertTrue(rows.dropFirst().allSatisfy { $0.incomingJoin?.continuousInk == true })
+    }
+  }
+
+  func testSeparateLettersThatTouchDoNotFabricateContinuousJoins() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let strokes = lesson.letters.map { letter in
+      letter.points.map {
+        CGPoint(x: guide.originX + $0.x * guide.height, y: guide.top + $0.y * guide.height)
+      }
+    }
+    let result = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+    XCTAssertTrue(
+      result.letters!.dropFirst().allSatisfy { $0.incomingJoin?.continuousInk == false })
+    // Connection observations do not penalize the primary grade.
+    XCTAssertGreaterThan(result.score, 97)
+  }
+
+  func testMissingMiddleWindowIsNotAssignedNeighbourInk() {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let strokes = lesson.letters.filter { $0.id != 1 }.map { letter in
+      letter.points.map {
+        CGPoint(x: guide.originX + $0.x * guide.height, y: guide.top + $0.y * guide.height)
+      }
+    }
+    let result = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+    XCTAssertNil(result.letters![1].shape)
+    XCTAssertTrue(result.letters![1].note.contains("Not enough ink"))
+    XCTAssertNotNil(result.letters![2].shape)
+  }
+
+  func testLocalLetterDistortionChangesItsEstimate() {
+    let lesson = PracticeLesson.all[2]  // hello: h/l retain the full bounds while e changes.
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let strokes = lesson.letters.map { letter in
+      letter.points.map { point in
+        CGPoint(
+          x: guide.originX + point.x * guide.height,
+          y: guide.top + (letter.id == 1 ? 1 - (1 - point.y) * 0.4 : point.y) * guide.height)
+      }
+    }
+    let result = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+    XCTAssertLessThan(result.letters![1].shape ?? 100, 75)
+    XCTAssertGreaterThan(result.letters![2].shape ?? 0, 95)
+  }
+
+  func testEmptyInkKeepsRowsButWithholdsLetterEstimates() {
+    let lesson = PracticeLesson.all[2]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let result = LessonScorer.evaluate(strokes: [], lesson: lesson, guide: guide)
+    XCTAssertEqual(result.letters?.count, lesson.word.count)
+    XCTAssertTrue(result.letters!.allSatisfy { $0.shape == nil && $0.incomingJoin == nil })
+  }
+
+  func testClipperPreservesSparseCrossingsAndDoesNotBridgeExcursions() {
+    let result = LetterWindow.clip(
+      [CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 100)], left: 25, right: 75)
+    XCTAssertEqual(result, [[CGPoint(x: 25, y: 25), CGPoint(x: 75, y: 75)]])
+    let outside = LetterWindow.clip(
+      [CGPoint(x: 30, y: 0), CGPoint(x: 100, y: 40), CGPoint(x: 30, y: 80)], left: 25, right: 50)
+    XCTAssertEqual(outside.count, 2)
+    XCTAssertEqual(outside[0].last!.x, 50)
+    XCTAssertEqual(outside[1].first!.x, 50)
+  }
+
+  func testPrimerAndOccurrenceFeedbackRoundTrip() throws {
+    let lesson = PracticeLesson.all[2]
+    let guide = WritingGuide(size: canvas, wordWidth: lesson.width)
+    let result = LessonScorer.evaluate(
+      strokes: [lesson.referencePoints(in: guide)], lesson: lesson, guide: guide)
+    let decoded = try JSONDecoder().decode(
+      PracticeFeedback.self, from: JSONEncoder().encode(result))
+    XCTAssertEqual(decoded.primerID, result.primerID)
+    XCTAssertEqual(decoded.letters?.map { $0.id }, [0, 1, 2, 3, 4])
+    XCTAssertEqual(decoded.letters?[3].incomingJoin?.combination, "ll")
+  }
+}
+
+#if canImport(PencilKit)
+  final class VisibleInkTests: XCTestCase {
+    func testFullyMaskedInkDoesNotFallBackToSyntheticContours() {
+      let points = [CGPoint(x: 0, y: 30), CGPoint(x: 100, y: 30)].enumerated().map { index, point in
+        PKStrokePoint(
+          location: point, timeOffset: Double(index) / 10, size: CGSize(width: 2, height: 2),
+          opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+      }
+      let stroke = PKStroke(
+        ink: PKInk(.pen, color: .black),
+        path: PKStrokePath(controlPoints: points, creationDate: Date()), transform: .identity,
+        mask: UIBezierPath(rect: CGRect(x: 1000, y: 1000, width: 10, height: 10)))
+      XCTAssertTrue(stroke.maskedPathRanges.isEmpty)
+      XCTAssertThrowsError(
+        try StrokeExtractor.extractStrokePoints(from: PKDrawing(strokes: [stroke])))
+    }
+
+    func testPartialMaskKeepsVisibleRangesSeparateAfterTransform() throws {
+      let points = [0, 25, 50, 75, 100].enumerated().map { index, x in
+        PKStrokePoint(
+          location: CGPoint(x: CGFloat(x), y: 30), timeOffset: Double(index) / 10,
+          size: CGSize(width: 2, height: 2), opacity: 1, force: 1, azimuth: 0, altitude: .pi / 2)
+      }
+      let mask = UIBezierPath(rect: CGRect(x: -5, y: 20, width: 45, height: 20))
+      mask.append(UIBezierPath(rect: CGRect(x: 60, y: 20, width: 45, height: 20)))
+      var stroke = PKStroke(
+        ink: PKInk(.pen, color: .black),
+        path: PKStrokePath(controlPoints: points, creationDate: Date()), mask: mask)
+      XCTAssertEqual(
+        stroke.maskedPathRanges.count, 2,
+        "The fixture must contain two visible path ranges before translation: \(stroke.renderBounds)"
+      )
+      stroke.transform = CGAffineTransform(translationX: 100, y: 200)
+      let extracted = try StrokeExtractor.extractStrokePoints(from: PKDrawing(strokes: [stroke]))
+      XCTAssertEqual(extracted.count, 2)
+      XCTAssertTrue(extracted[0].allSatisfy { $0.x <= 140.5 })
+      XCTAssertTrue(extracted[1].allSatisfy { $0.x >= 159.5 })
+      XCTAssertTrue(extracted.flatMap { $0 }.allSatisfy { abs($0.y - 230) < 0.001 })
+      XCTAssertLessThan(extracted[0].last!.x, extracted[1].first!.x)
+    }
+  }
+#endif

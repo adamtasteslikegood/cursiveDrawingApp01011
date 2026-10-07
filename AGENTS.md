@@ -10,7 +10,7 @@ Cursive Prototype is an iOS-only Swift Playgrounds handwriting practice experime
 - `Tests/`: analyzer regression test fragment and a standard test package manifest.
 - `scripts/`: canonical lint/build/test/integrity commands.
 - `docs/`: unique historical exports, provenance index, and device checklist.
-- `specs/`: future `plan.md`, `roadmap.md`, and `design.md`; do not invent accepted requirements.
+- `specs/`: `plan.md`, `roadmap.md`, and `design.md` frame the user-directed progression; Zaner-Bloser is the user-selected instructional reference; model alignment and future interfaces remain open. Do not invent accepted requirements.
 - `backups/legacy/`: preserved originals. Do not format, compile, or modify archived code.
 
 ## Working rules
@@ -34,3 +34,7 @@ Use Swift's built-in formatter on the active package and tests only. Do not comm
 Keep README, QUICKSTART, CONTRIBUTING, and this guide consistent when commands or structure change. Use the PR template and include precise validation and device limitations.
 
 Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact lesson models and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
+
+Version 1.2 keeps nine words in three sets under `prototype-cursive` revision 1. Letter feedback uses expected model windows after whole-word fitting; it is not independent recognition. Join observations require one visible path across both sides of the model boundary and do not grade pen-lift correctness. Visible mask ranges remain separate. See `docs/letter-analysis-prototype.md` and `docs/primer-decisions.md`; the user adopted Zaner-Bloser as the primary instructional reference for now; Handwriting Without Tears is a marketplace reference only. Do not relabel the current hand-authored runtime curves as Zaner-Bloser before alignment and review. Lint runs `scripts/export-primer.py --check` to keep the five-letter visual synchronized. No external primer selector or phrase/sentence/combination lesson type is implemented.
+
+The 1.2 device trial (`docs/ipad-prototype-1.2-evaluation.md`) confirms animations and feedback display but reports around 70% for unrelated ink and around 85% or less for tracing. Treat scoring as unresolved; reproduce before assigning a cause. The user requires a guide-driven engine with interchangeable style, skill-level, language, and glyph data. Zaner-Bloser is the first reference, not an engine-wide assumption. Personalized learned guides and separate penmanship/font capture are future capabilities; see `specs/design.md`.

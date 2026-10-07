@@ -17,7 +17,7 @@ The eight findings on PR #1 were confirmed in the original source. The fixes app
 
 Apple documents that `.accurate` recognition returns word-level boxes even for individual character ranges, while `.fast` provides character-level boxes. The prototype now uses `.fast` and asks for each non-whitespace character's range. Missing character boxes use an explicitly heuristic equal-width fallback. [Apple: boundingBox(for:)](https://developer.apple.com/documentation/vision/vnrecognizedtext/boundingbox(for:))
 
-These fixes do not validate cursive OCR, educational scores, or exact letter boundaries. Character boxes are approximate; unknown ink remains explicit, overlapping boxes assign each path interval once, and this lesson assumes a single left-to-right writing line. Timing remains a fixed placeholder and teacher templates still need registration. PencilKit masks and handwritten multi-line reading order need separate work.
+These fixes do not validate cursive OCR, educational scores, or exact letter boundaries. Character boxes are approximate; unknown ink remains explicit, overlapping boxes assign each path interval once, and this lesson assumes a single left-to-right writing line. Timing remains a fixed placeholder and teacher templates still need registration. The original fixes left PencilKit masks and multi-line reading order for later work. Version 1.2 adds visible-mask range handling; see `letter-analysis-prototype.md`. Multi-line reading order remains open.
 
 ## Checks
 

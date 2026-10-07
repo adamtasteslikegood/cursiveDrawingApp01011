@@ -16,8 +16,8 @@ let package = Package(
     .iOSApplication(
       name: "CursivePrototype",
       targets: ["AppModule"],
-      displayVersion: "1.1",
-      bundleVersion: "2",
+      displayVersion: "1.2",
+      bundleVersion: "3",
       appIcon: .placeholder(icon: .pencil),
       accentColor: .presetColor(.blue),
       supportedDeviceFamilies: [
