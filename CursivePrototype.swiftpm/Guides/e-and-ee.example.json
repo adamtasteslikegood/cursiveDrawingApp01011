@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "id": "prototype-e-example",
+  "name": "E and EE schema example",
+  "revision": "1",
+  "style": "illustrative-cursive",
+  "language": "en",
+  "script": "Latn",
+  "direction": "leftToRight",
+  "reviewStatus": "Unreviewed project model",
+  "provenance": {
+    "author": "Cursivly contributors",
+    "license": "MIT",
+    "source": "Original project-authored cubic paths from prototype 1.2",
+    "instructionalReference": "Zaner-Bloser selected for future alignment",
+    "reviewNotes": "The five glyphs and joins have not been validated against the selected curriculum."
+  },
+  "lines": {
+    "midline": 0.5,
+    "descender": 1.35,
+    "topLabel": "Tall letters",
+    "middleLabel": "Small letters",
+    "baselineLabel": "Baseline"
+  },
+  "profiles": [
+    {
+      "id": "explore",
+      "name": "Explore",
+      "instruction": "Follow the example, then try writing without the trace.",
+      "assessment": {
+        "algorithm": "geometry-v1",
+        "shapeTolerance": 0.015,
+        "shapeFalloff": 0.24,
+        "letterFalloff": 0.14,
+        "positionTolerance": 0.1,
+        "positionFalloff": 0.5,
+        "sizeTolerance": 0.2,
+        "sizeFalloff": 0.9
+      }
+    }
+  ],
+  "glyphs": [
+    {
+      "symbol": "e",
+      "advance": 0.65,
+      "strokes": [
+        {
+          "start": {
+            "x": 0,
+            "y": 1
+          },
+          "curves": [
+            {
+              "control1": {
+                "x": 0.18,
+                "y": 0.89
+              },
+              "control2": {
+                "x": 0.49,
+                "y": 0.66
+              },
+              "end": {
+                "x": 0.37,
+                "y": 0.53
+              }
+            },
+            {
+              "control1": {
+                "x": 0.17,
+                "y": 0.4
+              },
+              "control2": {
+                "x": 0.07,
+                "y": 0.83
+              },
+              "end": {
+                "x": 0.27,
+                "y": 0.97
+              }
+            },
+            {
+              "control1": {
+                "x": 0.37,
+                "y": 1.08
+              },
+              "control2": {
+                "x": 0.53,
+                "y": 1.04
+              },
+              "end": {
+                "x": 0.65,
+                "y": 1.0
+              }
+            }
+          ]
+        }
+      ],
+      "entry": {
+        "x": 0,
+        "y": 1
+      },
+      "exit": {
+        "x": 0.65,
+        "y": 1
+      },
+      "instruction": "Follow the displayed path; formation review is pending."
+    }
+  ],
+  "joins": [
+    {
+      "left": "e",
+      "right": "e",
+      "mode": "continuous"
+    }
+  ],
+  "lessons": [
+    {
+      "id": "e",
+      "text": "e",
+      "set": 1,
+      "instruction": "Compare the entry, small loop, and connection with the displayed project model."
+    },
+    {
+      "id": "ee",
+      "text": "ee",
+      "set": 1,
+      "instruction": "Compare the entry, small loop, and connection with the displayed project model."
+    }
+  ]
+}

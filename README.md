@@ -2,11 +2,15 @@
 
 An iOS Swift Playgrounds prototype for practicing cursive handwriting with PencilKit and receiving experimental feedback from Vision and stroke geometry.
 
-Version **1.2** offers three sets: **loop/pool/hello**, **hope/help/peel**, and **heel/hole/pole**, with a centered writing band, labeled solid/dashed guides, a target thumbnail, an optional trace guide, and a replay demonstration. The canvas supports PencilKit tools, Clear, and Evaluate. The visible version/date and provisional primer labels identify this iteration. Experimental letter rows show local model matches and observed joins; OCR stays separate. See [the 1.2 analysis guide](docs/letter-analysis-prototype.md).
+Version **1.3** adds interchangeable JSON handwriting guides. **Prototype Cursive** preserves the nine words in three sets: **loop/pool/hello**, **hope/help/peel**, and **heel/hole/pole**. **Stroke Lab** demonstrates a different glyph inventory, separate strokes, guide lines and profiles. Import a guide JSON file for the current session. Examples, replay, thumbnails and geometric comparison consume the selected guide revision; changing guide/profile/lesson clears ink and results. See the [guide contract and examples](docs/guide-format.md).
+
+The five-letter model is still provisional. [Source research and alignment findings](docs/model-source-assessment.md) explain the Zaner-Bloser reference and remaining model work. [Synthetic scoring probes](docs/scoring-evidence-1.3.md) reproduce misleading high matches for unrelated ink; the guide migration preserves baseline scores and does not resolve that defect. Prototype 1.3 requires a fresh iPad trial.
 
 The primary **Practice match** compares actual ink with the displayed model's geometry and reports shape, vertical position, and height separately. OCR is shown as a separate recognition check. Models, weights, and feedback are experimental and do not establish educational mastery, timing, joins, or stroke-order accuracy. See [the lesson guide](docs/lesson-prototype.md) for scoring details and limitations.
 
 The user confirmed the refreshed **1.0 baseline** runs and evaluates handwriting on an iPad, while reporting low scores and missing tutorial cues; see [the baseline evaluation](docs/ipad-baseline-evaluation.md). The user subsequently accepted the core 1.1 UI and scoring consistency on the same iPad; the [1.2 trial](docs/ipad-prototype-1.2-evaluation.md) confirms lesson animations and feedback display but reports misleading scores for unrelated ink and careful tracing; scoring remains unresolved; [the 1.1 evaluation](docs/ipad-lesson-1.1-evaluation.md) records the evidence and the still-experimental per-letter analysis.
+
+Sprint scope and acceptance gaps are tracked in [the sprint 119 record](docs/sprint-119.md).
 
 Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -15,7 +19,8 @@ Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instruc
 | Path | Purpose |
 | --- | --- |
 | `CursivePrototype.swiftpm/` | Active, standalone Swift Playgrounds app package, one level below root |
-| `docs/` | Unique historical conversation and troubleshooting documents, indexed by content hash |
+| `CursivePrototype.swiftpm/Guides/` | Bundled versioned guide JSON, including an importable e/ee example |
+| `docs/` | Current model/validation reports and historical documents indexed by content hash |
 | `specs/` | Plan, roadmap, and design drafts reflecting the user’s next direction and remaining primer alignment work |
 | `Tests/` | Analyzer regression tests, compiled with the actual app analyzer source |
 | `scripts/` | Build, test, lint, and repository validation entry points |
@@ -47,4 +52,4 @@ The working prototype originated in [PR #1](https://github.com/adamtasteslikegoo
 
 [MIT](LICENSE), copyright 2026 Cursive Prototype contributors.
 
-Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact lesson models and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
+Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact guide loader, lesson models/resources and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.

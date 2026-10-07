@@ -2,7 +2,7 @@
 
 Record package commit, iPad model, iPadOS version, Swift Playgrounds version, and input device for each run.
 
-- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.2 · 2026-10-06` for this iteration).
+- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.3 · 2026-10-07` for this iteration).
 - Confirm lined paper and canvas remain usable in portrait and landscape, including compact iPhone landscape; scroll the full lesson to reach controls and all results.
 - On first launch and after window reattachment, confirm the tool picker appears; write with touch and Apple Pencil where available and check pen and eraser.
 - Evaluate a nonempty drawing; confirm drawing, erasing, and lasso edits are blocked while analyzing, then resume after completion; confirm feedback matches the frozen ink.
@@ -37,3 +37,12 @@ Keep findings in the PR. Scores, timing, teacher templates, and target-text alig
 - Compare a continuous word stroke with separate letter strokes whose endpoints touch; inspect join evidence without assuming pen lifts are incorrect.
 - Erase part of a stroke with the partial/bitmap eraser and reevaluate; erased gaps must not appear as continuous recorded joins. Fully erased input should prompt for measurable ink.
 - Confirm the accepted replay/toggle interaction and whole-word score consistency remain intact. Record region estimates separately from OCR and educational correctness.
+
+## Guide foundation 1.3 — new device evidence required
+
+- Record exact ZIP/commit, visible version/date, device, OS, Playgrounds and input method. Preserve the original 1.2 report separately.
+- Select each guide and each profile, including after writing/evaluating. Confirm ink/results clear, the selected lesson is valid, and its lines, thumbnail, replay and feedback use the same model. Check narrow portrait and wide landscape layouts.
+- Stroke Lab: x has two separate strokes; xl/lx have three. Replay must move to each stroke without drawing a connecting bridge. Lifted boundaries must not report a missing continuous join as an error.
+- Import `Guides/e-and-ee.example.json`. Confirm e and ee load. Attempt malformed JSON, an unsupported glyph/direction and a duplicate ID; confirm a readable error and unchanged ink/results. Imports are session-only.
+- Repeat each score probe (careful trace, freehand target, unrelated word, zigzag, dense scribble) before/after Clear, lesson change, guide change, partial erasure and rotation. Record shape/position/height and OCR, not just total. Existing false positives are not fixed in this iteration.
+- Test replay with trace off, reduced motion, Apple Pencil input and tool-picker behavior. Automated tests do not establish these outcomes.

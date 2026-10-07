@@ -20,9 +20,9 @@ struct LinedPaperBackground: View {
           lines([guide.descender], width: geometry.size.width)
             .stroke(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [2, 5]))
         }
-        label("Tall letters", y: guide.top - 17)
-        label("Small letters", y: guide.middle - 17)
-        label("Baseline", y: guide.baseline + 3)
+        label(guide.lines.topLabel, y: guide.top - 17)
+        label(guide.lines.middleLabel, y: guide.middle - 17)
+        label(guide.lines.baselineLabel, y: guide.baseline + 3)
       }
     }
     .allowsHitTesting(false)
@@ -46,16 +46,18 @@ struct LinedPaperBackground: View {
 }
 
 struct ReferenceWord: View {
-  let points: [CGPoint]
+  let strokes: [[CGPoint]]
   var progress: CGFloat = 1
   var color: Color = .blue
   var lineWidth: CGFloat = 3
 
   var body: some View {
     Path { path in
-      if let first = points.first {
-        path.move(to: first)
-        for point in points.dropFirst() { path.addLine(to: point) }
+      for points in strokes {
+        if let first = points.first {
+          path.move(to: first)
+          for point in points.dropFirst() { path.addLine(to: point) }
+        }
       }
     }
     .trim(from: 0, to: progress)
@@ -71,15 +73,16 @@ struct LessonThumbnail: View {
 
   var body: some View {
     GeometryReader { geometry in
-      let guide = WritingGuide(size: geometry.size, wordWidth: lesson.width)
+      let guide = WritingGuide(
+        size: geometry.size, wordWidth: lesson.width, lines: lesson.model.lines)
       ZStack {
         Color.white
-        ReferenceWord(points: lesson.referencePoints(in: guide), lineWidth: 2)
+        ReferenceWord(strokes: lesson.referenceStrokes(in: guide), lineWidth: 2)
       }
     }
     .frame(width: thumbnailWidth, height: 88)
     .clipShape(RoundedRectangle(cornerRadius: 8))
     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.blue.opacity(0.3)))
-    .accessibilityLabel("Illustrative cursive example: \(lesson.word)")
+    .accessibilityLabel("Guide example: \(lesson.word)")
   }
 }

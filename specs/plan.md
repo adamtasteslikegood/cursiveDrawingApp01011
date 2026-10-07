@@ -26,3 +26,7 @@ The 1.2 device trial is recorded in `docs/ipad-prototype-1.2-evaluation.md`: les
 4. Route lesson composition, guides, examples/replay, and assessment through the selected versioned guide. Use a second small test guide to expose embedded style assumptions.
 5. Establish reviewed evaluation fixtures and preserve explicit uncertainty. A new data format alone does not fix scoring or establish educational validity.
 6. Reserve extension points for personalized learning models and separate penmanship/font capture. ML, font generation, full language support, and additional lesson families remain future implementation.
+
+## Sprint 119 delivery — 2026-10-07
+
+The [sprint record](../docs/sprint-119.md) maps CURS-6/7/8/17 to implemented evidence and remaining acceptance. Prototype 1.3 delivers schema validation, three guide JSON examples, data-driven composition/rendering/scoring, session import and guide/profile switching. The original five glyphs and score behavior remain unchanged. Source assessment identifies specific alignment gaps; synthetic probes reproduce high unrelated-ink scores. Contextual model alignment, device tracing reproduction and owner/device review remain open. Sprint dates/estimates and completion have not been invented.

@@ -2,13 +2,19 @@
 
 Status: current prototype behavior plus proposed future interfaces. User-authorized lesson families are words, single letters, linking combinations, phrases, and sentences. Only single words are implemented in 1.2. The user's 1.2 device trial confirms lesson presentation and animations, while reporting misleading scoring; see `docs/ipad-prototype-1.2-evaluation.md`.
 
-## Current model
+## Historical 1.2 model
 
 `PracticeLesson` supplies word, focus, set, and a provisional primer descriptor. Each occurrence has a stable index, expected letter, model-space X interval, and sampled path. Examples and feedback share these points. `WritingGuide` converts model coordinates into one fixed canvas writing band. Whole-word fitting preserves aspect ratio and produces the existing shape/position/height score.
 
 Letter feedback clips actual fitted stroke edges into expected X windows and compares each region with its reference without independently stretching that letter. This is a guided estimate, not independent character recognition. Empty/degenerate regions receive no numerical estimate. Repeated letters retain distinct occurrence IDs. Join evidence requires a continuous recorded path on both sides of the model boundary near the current primer's baseline; touching endpoints from separate strokes do not count. This observation is not an assessment of correct joining or pen-lift technique and does not change the accepted whole-word grade.
 
 Partial masks are sampled by visible PencilKit ranges and kept separate. OCR remains a separate diagnostic. Malformed words, large missing portions, and unusual spacing can make globally fitted windows assign the wrong ink; the UI states this limitation. The current baseline-boundary heuristic must be replaced by primer-specific anchors before supporting different joining conventions.
+
+## Implemented 1.3 guide foundation
+
+See [the guide contract](../docs/guide-format.md). `HandwritingGuide` validates local JSON; `PracticeLesson` holds the chosen model/profile by value and composes stroke arrays. Lines, instructions, lesson sets, examples and comparison use that data. Guide IDs/revisions and profile/algorithm/style/language accompany results. SwiftPM packages the resources; validated imports last for the session. Stroke Lab demonstrates a distinct inventory and lifted paths without engine glyph branches.
+
+Connection observations now use the selected entry anchor height, and intentional lifted joins are not evaluated as missing continuous ink. The initial contract deliberately rejects contextual variants, unsupported shaping and noncoincident continuous endpoints. These remain requirements for a fully aligned instructional model; Zaner-Bloser alignment has not been claimed. The existing five glyphs, visual and 36 synthetic baseline component scores are preserved. Calibration remains unresolved.
 
 ## Proposed future lesson structure
 

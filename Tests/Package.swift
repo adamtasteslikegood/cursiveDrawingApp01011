@@ -4,5 +4,5 @@ import PackageDescription
 let package = Package(
   name: "CursiveValidation",
   platforms: [.iOS(.v16)],
-  targets: [.testTarget(name: "AnalyzerTests")]
+  targets: [.testTarget(name: "AnalyzerTests", resources: [.copy("Guides"), .copy("Fixtures")])]
 )
