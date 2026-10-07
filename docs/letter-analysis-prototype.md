@@ -1,6 +1,6 @@
 # Primer-aware letter analysis prototype 1.2
 
-Visible revision: `Lesson prototype 1.2 · 2026-10-06`; package version 1.2, bundle 3. The core 1.1 runtime was accepted in the [device evaluation](ipad-lesson-1.1-evaluation.md). This iteration requires a separate device trial.
+Visible revision: `Lesson prototype 1.2 · 2026-10-06`; package version 1.2, bundle 3. The core 1.1 runtime was accepted in the [device evaluation](ipad-lesson-1.1-evaluation.md). The [1.2 device trial](ipad-prototype-1.2-evaluation.md) confirms lesson animations and feedback display but reports scoring defects; scoring is not accepted.
 
 ## Lessons and primer
 

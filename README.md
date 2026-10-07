@@ -6,7 +6,7 @@ Version **1.2** offers three sets: **loop/pool/hello**, **hope/help/peel**, and 
 
 The primary **Practice match** compares actual ink with the displayed model's geometry and reports shape, vertical position, and height separately. OCR is shown as a separate recognition check. Models, weights, and feedback are experimental and do not establish educational mastery, timing, joins, or stroke-order accuracy. See [the lesson guide](docs/lesson-prototype.md) for scoring details and limitations.
 
-The user confirmed the refreshed **1.0 baseline** runs and evaluates handwriting on an iPad, while reporting low scores and missing tutorial cues; see [the baseline evaluation](docs/ipad-baseline-evaluation.md). The user subsequently accepted the core 1.1 UI and scoring consistency on the same iPad; the new 1.2 analysis requires its own trial; [the 1.1 evaluation](docs/ipad-lesson-1.1-evaluation.md) records the evidence and the still-experimental per-letter analysis.
+The user confirmed the refreshed **1.0 baseline** runs and evaluates handwriting on an iPad, while reporting low scores and missing tutorial cues; see [the baseline evaluation](docs/ipad-baseline-evaluation.md). The user subsequently accepted the core 1.1 UI and scoring consistency on the same iPad; the [1.2 trial](docs/ipad-prototype-1.2-evaluation.md) confirms lesson animations and feedback display but reports misleading scores for unrelated ink and careful tracing; scoring remains unresolved; [the 1.1 evaluation](docs/ipad-lesson-1.1-evaluation.md) records the evidence and the still-experimental per-letter analysis.
 
 Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
