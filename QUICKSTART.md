@@ -5,7 +5,7 @@
 1. Clone or download this repository.
 2. Transfer the entire `CursivePrototype.swiftpm` folder to your iPad (Files or AirDrop).
 3. Open the package in Swift Playgrounds and run it. The manifest targets iOS 16 or later; use a current Playgrounds version compatible with your iPad.
-4. Confirm the on-screen label reads **Lesson prototype 1.3 · 2026-10-07**. Select Prototype Cursive and choose a word from Set 1, 2, or 3; changing guide, profile or lesson clears the drawing.
+4. Confirm the on-screen label reads **Lesson prototype 1.3.1 · 2026-10-07**. Select Prototype Cursive and choose a word from Set 1, 2, or 3; changing guide, profile or lesson clears the drawing. Scroll the page to position the paper comfortably; space below it remains available before evaluation and after clearing results.
 5. Use the thumbnail and Replay example. Small-letter bodies sit in the highlighted band between the dashed middle line and solid baseline; tall letters reach the top solid line, and p descends below the baseline.
 6. Trace the optional blue guide with Apple Pencil or touch, tap Evaluate, and inspect shape/position/height feedback, expanded experimental letter/join rows, and OCR separately. Clear resets the drawing and results. Try again with Trace guide off.
 

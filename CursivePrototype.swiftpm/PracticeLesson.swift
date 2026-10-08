@@ -12,7 +12,7 @@ struct PracticeLesson: Identifiable, Equatable {
   let id: String
   let model: HandwritingGuide
   let profile: HandwritingGuide.Profile
-  static let revision = "Lesson prototype 1.3 · 2026-10-07"
+  static let revision = "Lesson prototype 1.3.1 · 2026-10-07"
   static let all = lessons(in: GuideLibrary.prototype)
 
   init(
