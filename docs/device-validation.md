@@ -2,7 +2,7 @@
 
 Record package commit, iPad model, iPadOS version, Swift Playgrounds version, and input device for each run.
 
-- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.3 · 2026-10-07` for this iteration).
+- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.3.1 · 2026-10-07` for this iteration).
 - Confirm lined paper and canvas remain usable in portrait and landscape, including compact iPhone landscape; scroll the full lesson to reach controls and all results.
 - On first launch and after window reattachment, confirm the tool picker appears; write with touch and Apple Pencil where available and check pen and eraser.
 - Evaluate a nonempty drawing; confirm drawing, erasing, and lasso edits are blocked while analyzing, then resume after completion; confirm feedback matches the frozen ink.
@@ -38,7 +38,9 @@ Keep findings in the PR. Scores, timing, teacher templates, and target-text alig
 - Erase part of a stroke with the partial/bitmap eraser and reevaluate; erased gaps must not appear as continuous recorded joins. Fully erased input should prompt for measurable ink.
 - Confirm the accepted replay/toggle interaction and whole-word score consistency remain intact. Record region estimates separately from OCR and educational correctness.
 
-## Guide foundation 1.3 — new device evidence required
+## Guide foundation 1.3 — partial device evidence
+
+The [owner's 1.3 report](ipad-prototype-1.3-evaluation.md) confirms high tracing scores and working Stroke Lab modes, reports continued false positives, and identifies a scroll-positioning regression. Unreported cases below remain open.
 
 - Record exact ZIP/commit, visible version/date, device, OS, Playgrounds and input method. Preserve the original 1.2 report separately.
 - Select each guide and each profile, including after writing/evaluating. Confirm ink/results clear, the selected lesson is valid, and its lines, thumbnail, replay and feedback use the same model. Check narrow portrait and wide landscape layouts.
@@ -46,3 +48,11 @@ Keep findings in the PR. Scores, timing, teacher templates, and target-text alig
 - Import `Guides/e-and-ee.example.json`. Confirm e and ee load. Attempt malformed JSON, an unsupported glyph/direction and a duplicate ID; confirm a readable error and unchanged ink/results. Imports are session-only.
 - Repeat each score probe (careful trace, freehand target, unrelated word, zigzag, dense scribble) before/after Clear, lesson change, guide change, partial erasure and rotation. Record shape/position/height and OCR, not just total. Existing false positives are not fixed in this iteration.
 - Test replay with trace off, reduced motion, Apple Pencil input and tool-picker behavior. Automated tests do not establish these outcomes.
+
+## Writing-area positioning 1.3.1
+
+- Before writing or evaluating, scroll the page until the center of the paper is near the center of the visible viewport. Confirm writing feels comfortable and Clear/Evaluate are reachable.
+- Repeat after Clear, changing a word/set, changing a guide/profile, and expanding feedback then switching to the next lesson. Centering must not depend on feedback being present.
+- Repeat in portrait, landscape and Split View. Confirm the outer page scrolls while ink remains registered with its guides; test Pencil writing and finger scrolling outside the paper.
+- Evaluate while the paper is centered; confirm scores and all feedback remain reachable. Repeat the existing rotation-during-evaluation check.
+- Recheck a careful trace and dense scribble with the same guide/profile and record components separately. This visual patch does not fix the high scribble score.

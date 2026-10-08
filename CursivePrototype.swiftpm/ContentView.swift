@@ -142,6 +142,9 @@ struct ContentView: View {
           .font(.caption).foregroundColor(.secondary)
         }
         .padding(16)
+        // Keep room to scroll the paper to the viewport center even without feedback.
+        // Padding belongs to the page; the canvas and its ink/guide coordinates stay fixed.
+        .padding(.bottom, max(0, (geometry.size.height - height) / 2))
       }
     }
     .fileImporter(isPresented: $importsGuide, allowedContentTypes: [.json]) { result in

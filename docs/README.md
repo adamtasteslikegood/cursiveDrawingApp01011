@@ -24,3 +24,5 @@ The approximately 1,500-line conversation exports contain the original design di
 - [Prototype 1.2 iPad evaluation](ipad-prototype-1.2-evaluation.md): working lesson/feedback display, reported scoring defects, and required interchangeable guide direction.
 
 - [Guide format](guide-format.md), [model source assessment](model-source-assessment.md), [scoring reproduction](scoring-evidence-1.3.md) and [sprint 119](sprint-119.md): implemented 1.3 guide engine, retained baseline, source decisions and outstanding acceptance.
+
+- [Prototype 1.3 iPad evaluation](ipad-prototype-1.3-evaluation.md): improved tracing scores, persistent false positives, working Stroke Lab modes, and the positioning regression addressed by 1.3.1.

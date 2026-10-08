@@ -13,6 +13,8 @@ Date: 2026-10-07. Jira: [Cursivly Scrum board](https://tasteslikegood.atlassian.
 
 The guide engine also advances CURS-16 without moving it into this sprint or silently adding estimates. Scoring reproduction informs CURS-20/CURS-21; no scoring defect is marked fixed. Personalized learning, fonts, full alphabet, language shaping and new lesson families remain future work.
 
+PR #6 is merged. The [separate 1.3 iPad report](ipad-prototype-1.3-evaluation.md) adds high tracing scores and working Stroke Lab modes, confirms continued false positives, and identifies [CURS-24](https://tasteslikegood.atlassian.net/browse/CURS-24), a writing-area positioning regression. The immediate 1.3.1 patch reserves scroll space independent of feedback. These observations do not close import validation, model alignment or the unreported 1.2 checklist items. CURS-24 is tracked under Lessons UI without changing sprint dates or membership.
+
 ## Verification and handoff
 
 Local agent-harness verification executes repository integrity, strict Swift lint/visual consistency and the portable regression suite as subprocesses. The PM delivery gate tracks the owner, acceptance and evidence. Its local plan/state live in ignored `.agent-harness/`; those tool records are not product artifacts. GitHub CI supplies the Apple build/simulator evidence and custom CodeQL checks on the PR head. Linux cannot perform Apple checks locally.
