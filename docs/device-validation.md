@@ -2,7 +2,7 @@
 
 Record package commit, iPad model, iPadOS version, Swift Playgrounds version, and input device for each run.
 
-- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.4 · 2026-10-07` for this iteration).
+- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.5 · 2026-10-08` for this iteration).
 - Confirm lined paper and canvas remain usable in portrait and landscape, including compact iPhone landscape; scroll the full lesson to reach controls and all results.
 - On first launch and after window reattachment, confirm the tool picker appears; write with touch and Apple Pencil where available and check pen and eraser.
 - Evaluate a nonempty drawing; confirm drawing, erasing, and lasso edits are blocked while analyzing, then resume after completion; confirm feedback matches the frozen ink.

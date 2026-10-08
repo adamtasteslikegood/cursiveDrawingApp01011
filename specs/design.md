@@ -22,7 +22,7 @@ Use a typed lesson kind and explicit text/occurrence tokens rather than passing 
 
 ## Selected instructional reference
 
-The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. The `prototype-cursive` identity remains provisional; revision 2 changes assessment settings, not the original glyph geometry or instructional alignment.
+The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. The `prototype-cursive` identity remains provisional; current revision 3 changes assessment settings, not the original glyph geometry or instructional alignment.
 
 ## Required interchangeable guide architecture
 

@@ -7,7 +7,7 @@
 3. Open the package in Swift Playgrounds and run it. The manifest targets iOS 16 or later; use a current Playgrounds version compatible with your iPad.
 4. Confirm the on-screen label reads **Lesson prototype 1.5 · 2026-10-08**. Select Prototype Cursive and choose a word from Set 1, 2, or 3; changing guide, profile or lesson clears the drawing. Scroll the page to position the paper comfortably; space below it remains available before evaluation and after clearing results.
 5. Use the thumbnail and Replay example. Small-letter bodies sit in the highlighted band between the dashed middle line and solid baseline; tall letters reach the top solid line, and p descends below the baseline.
-6. Trace the optional blue guide with Apple Pencil or touch, tap Evaluate, and inspect shape/position/height, ink near the example, model coverage, expanded experimental letter/join rows, and OCR separately. Clear resets the drawing and results. Try again with Trace guide off.
+6. Write with Apple Pencil or touch, optionally using the blue trace guide, then tap Evaluate. Inspect the practice score, shape/position/height, any extra-ink message, expanded experimental letter/join rows, and OCR separately. Clear resets the drawing and results. Try again with Trace guide off.
 
 To exercise the new engine, select **Stroke Lab**, which contains a two-stroke x and lifted connections. Its models are technical demonstrations, not reviewed handwriting instruction. Compare Explore and Precise geometry profiles. Import `CursivePrototype.swiftpm/Guides/e-and-ee.example.json` to try the complete one-letter/two-letter schema example. Imports last for the session; invalid files preserve the current lesson. See [guide authoring](docs/guide-format.md).
 

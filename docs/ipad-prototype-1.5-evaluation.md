@@ -26,6 +26,6 @@ No exact scores, per-attempt target/profile, orientation, timing measurements, o
 - [CI 37757735744](https://github.com/adamtasteslikegood/cursiveDrawingApp01011/actions/runs/37757735744): macOS iOS build, bundled resources, and **66 simulator tests** passed.
 - [CodeQL 37757735791](https://github.com/adamtasteslikegood/cursiveDrawingApp01011/actions/runs/37757735791): Swift and Actions passed with zero findings on merge commit `0e9542170c904969fca2a73425620f571a4ca0f3`.
 - Repository integrity, Swift lint and **61 portable tests** passed before delivery. Linux checks do not replace the Apple build or this owner evaluation.
-- This acceptance update changes documentation only; the evaluated app, tests, scripts and guide geometry are preserved. PR checks for the documentation commit are reviewed separately before merging.
+- The acceptance record initially changed documentation only. Subsequent review identified stale wording: one app caption still mentioned coverage, Quickstart listed obsolete metrics, and two documents named old version/revision values. These labels were corrected before merging. Scoring, Replay behavior, tests, scripts and guide geometry remain identical to the evaluated version; the corrected caption was not part of the owner's trial. Fresh Apple CI/CodeQL results are checked before merging.
 
 See [the 1.5 scoring formula and synthetic evidence](scoring-evidence-1.5.md), [the preceding 1.4-final evaluation](ipad-prototype-1.4-evaluation.md), and [remaining device checks](device-validation.md#independent-practice-and-replay-15).
