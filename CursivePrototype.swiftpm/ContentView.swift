@@ -205,6 +205,7 @@ struct ContentView: View {
 
   private var replayButton: some View {
     Button {
+      clearCanvas()
       showsTrace = true
       replayID += 1
     } label: {
@@ -216,7 +217,7 @@ struct ContentView: View {
   @ViewBuilder private var feedback: some View {
     if let report = evaluation.analysisReport, let practice = report.practice {
       VStack(alignment: .leading, spacing: 10) {
-        Text("Practice match: \(Int(practice.score.rounded()))/100")
+        Text("Practice score: \(Int(practice.score.rounded()))/100")
           .font(.title2.bold())
         Text(
           "Shape \(Int(practice.shape.rounded())) · Position \(Int(practice.placement.rounded())) · Height \(Int(practice.size.rounded()))"

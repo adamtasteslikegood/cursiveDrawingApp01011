@@ -19,3 +19,7 @@ User-directed progression, updated 2026-10-07. Order below is proposed; timing i
 The guide foundation is implemented; the owner selected scribble rejection with preserved tracing as the next priority. Version 1.4 provides an engineering candidate and paired evidence for device review. Continue first-five-letter and contextual-join review (CURS-8/CURS-9) before expanding curriculum claims. Stroke order/direction (CURS-11) needs explicit model expectations and ambiguous/missing-stroke cases, not inference from a high whole-word score.
 
 No milestone is complete merely because it appears here. Adding words with the same five glyphs increases practice variety, not alphabet coverage or educational validation.
+
+## 1.4 device evidence and 1.5 follow-up
+
+The [1.4-final owner trial](../docs/ipad-prototype-1.4-evaluation.md) reports improved scribble rejection and comfortable centering, but overall scores below 20% despite useful component feedback. The owner requests independent practice without trace-coverage grading, prefers Stroke Lab's Precise geometry in this trial, and requests Replay clearing. [Version 1.5](../docs/scoring-evidence-1.5.md) implements a separate guide-selected `geometry-v3` policy and clears ink/results before replay. Original glyphs and the v1/v2 compatibility paths remain. New device acceptance, educational calibration, reviewed Zaner-Bloser models and stroke-order analysis remain separate work.

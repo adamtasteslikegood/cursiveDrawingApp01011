@@ -12,7 +12,7 @@ struct PracticeLesson: Identifiable, Equatable {
   let id: String
   let model: HandwritingGuide
   let profile: HandwritingGuide.Profile
-  static let revision = "Lesson prototype 1.4 · 2026-10-07"
+  static let revision = "Lesson prototype 1.5 · 2026-10-08"
   static let all = lessons(in: GuideLibrary.prototype)
 
   init(
@@ -159,6 +159,7 @@ struct PracticeFeedback: Codable {
   var modelLanguage: String? = nil
   var inkNearModel: Double? = nil
   var modelCoverage: Double? = nil
+  var excessLengthLimit: Double? = nil
 }
 
 /// Geometry-only practice feedback; does not infer speed, joins, stroke order, or educational mastery.
@@ -187,8 +188,9 @@ struct LessonScorer {
     }
     // Uniform fitting keeps aspect ratio; translation and overall size are judged separately.
     let usesInkSupport = parameters.algorithm == "geometry-v2"
+    let independentPractice = parameters.algorithm == "geometry-v3"
     let scale: CGFloat
-    if usesInkSupport {
+    if usesInkSupport || independentPractice {
       // Fit both extents with one least-squares scale. A little height variation must
       // not shrink a long, otherwise faithful trace across all its letter windows.
       scale =
@@ -217,8 +219,17 @@ struct LessonScorer {
     let b = sample(referenceStrokes)
     let distance = (meanNearest(a, b) + meanNearest(b, a)) / 2 / guide.height
     // The selected profile supplies geometry tolerances; these are not validated skill grades.
-    let shape = clamp(
+    var shape = clamp(
       100 * (1 - max(0, distance - parameters.shapeTolerance) / parameters.shapeFalloff))
+    var excessLengthLimit: Double?
+    if independentPractice {
+      let form = practiceForm(fitted, reference: referenceStrokes, height: guide.height)
+      // Grade sustained shape differences, not near-exact coverage of the trace.
+      let allowance = parameters.shapeTolerance + parameters.shapeFalloff / 4
+      shape = min(
+        shape, clamp(100 * (1 - max(0, form.deviation - allowance) / parameters.shapeFalloff)))
+      excessLengthLimit = 100 / (1 + max(0, form.lengthRatio - parameters.lengthAllowance!))
+    }
     let verticalOffset = abs(inkBounds.midY - referenceBounds.midY) / guide.height
     let placement = clamp(
       100
@@ -229,6 +240,11 @@ struct LessonScorer {
     let size = clamp(
       100 * (1 - max(0, sizeError - parameters.sizeTolerance) / parameters.sizeFalloff))
     var notes: [String] = []
+    if let limit = excessLengthLimit, limit < 95 {
+      notes.append(
+        "There is much more pen travel than this word needs. Extra ink limits this attempt to \(Int(limit.rounded()))/100; try one clear attempt."
+      )
+    }
     if let support {
       if support.ink < 0.75 {
         notes.append("Much of the ink is away from the example. Clear and try following its paths.")
@@ -257,15 +273,58 @@ struct LessonScorer {
         "The geometry score is high. Compare your actual letters with the example; this score cannot confirm the word is correct."
       )
     }
+    let score: Double
+    if independentPractice {
+      // Good position/height cannot provide points independently of the letter forms.
+      score = min(shape * (0.60 + placement * 0.002 + size * 0.002), excessLengthLimit!)
+    } else {
+      score =
+        (shape * 0.60 + placement * 0.20 + size * 0.20)
+        * (support?.ink ?? 1) * (support?.model ?? 1)
+    }
     return PracticeFeedback(
-      score: (shape * 0.60 + placement * 0.20 + size * 0.20)
-        * (support?.ink ?? 1) * (support?.model ?? 1),
+      score: score,
       shape: shape, placement: placement, size: size, notes: notes,
       letters: letterFeedback(fitted: fitted, lesson: lesson, guide: guide),
       primerID: lesson.primer.id, primerRevision: lesson.primer.revision,
       profileID: lesson.profile.id, assessmentAlgorithm: parameters.algorithm,
       modelStyle: lesson.model.style, modelLanguage: lesson.model.language,
-      inkNearModel: support.map { $0.ink * 100 }, modelCoverage: support.map { $0.model * 100 })
+      inkNearModel: support.map { $0.ink * 100 }, modelCoverage: support.map { $0.model * 100 },
+      excessLengthLimit: excessLengthLimit)
+  }
+
+  /// Compare the most different fifth of each path after a global fit. Distances are
+  /// continuous, guide-relative measurements; no trace-coverage percentage enters v3.
+  private static func practiceForm(
+    _ ink: [[CGPoint]], reference: [[CGPoint]], height: CGFloat
+  ) -> (deviation: Double, lengthRatio: Double) {
+    let actual = edges(ink)
+    let expected = edges(reference)
+    guard !actual.isEmpty, !expected.isEmpty else { return (.infinity, .infinity) }
+    func tail(_ source: [InkEdge], near target: EdgeIndex) -> Double {
+      let total = source.reduce(CGFloat(0)) { $0 + $1.length }
+      var index = 0
+      var consumed: CGFloat = 0
+      var distances: [Double] = []
+      for sample in 0..<512 {
+        let distance = total * (CGFloat(sample) + 0.5) / 512
+        while index < source.count - 1 && consumed + source[index].length < distance {
+          consumed += source[index].length
+          index += 1
+        }
+        let edge = source[index]
+        let point = edge.point(at: (distance - consumed) / edge.length)
+        distances.append(Double(target.nearest(to: point).distance / height))
+      }
+      let largest = distances.sorted(by: >).prefix(103)
+      return largest.reduce(0, +) / Double(largest.count)
+    }
+    return (
+      max(tail(actual, near: EdgeIndex(expected)), tail(expected, near: EdgeIndex(actual))),
+      Double(
+        actual.reduce(CGFloat(0)) { $0 + $1.length }
+          / expected.reduce(CGFloat(0)) { $0 + $1.length })
+    )
   }
 
   private struct InkEdge {

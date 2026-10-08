@@ -64,3 +64,14 @@ The [owner's 1.3 report](ipad-prototype-1.3-evaluation.md) confirms high tracing
 - Repeat after Clear, next lesson, guide/profile changes, erasure and rotation. Trace scores should remain high and unrelated-ink scores should drop substantially compared with the 1.3 trial. Record exceptions instead of treating a single good score as calibration.
 - Try retracing and separate strokes. V2 does not grade stroke direction/order or correct lifts; erased gaps must remain gaps. Inspect feedback wording and evaluation latency on both careful and dense inputs.
 - Repeat the centering checks above; 1.4 includes the positioning patch. Import the e/ee example, and optionally a retained v1 guide with a distinct ID to verify compatibility; record which algorithm the file specifies when comparing results.
+
+## Independent practice and Replay 1.5
+
+The [1.4-final report](ipad-prototype-1.4-evaluation.md) confirms comfortable centering and improved false positives in that trial; totals below 20% remain a reported defect. Validate the new version separately:
+
+- Confirm **Lesson prototype 1.5 · 2026-10-08**, guide revision **3**, and record device/OS/Playgrounds, guide/profile, target and orientation.
+- Pair a careful trace with independent writing of the same target with the trace hidden. Write slightly beside the model as well as over it. Record total, shape, position, height and any extra-ink message. Toggling the guide without changing ink must not change the result.
+- Pair those attempts with scribbles, unrelated words, partial letters, a missing Stroke Lab stroke and a good attempt followed by scribbles. Preserve low false-positive behavior; report exceptions. Compare Explore and Precise geometry without assuming either is educationally calibrated.
+- Draw and evaluate, hide the trace, then press Replay: ink and all prior feedback must clear, the toggle must turn on, and the animation must restart. Repeat with the trace already on, during replay, and with Reduce Motion. Replay remains unavailable during evaluation.
+- Confirm that clearing/replaying/next lesson still lets the paper center comfortably. Repeat in portrait, landscape and Split View where available.
+- Record evaluation latency on large drawings. Direction/order, OCR reliability and model alignment are separate unresolved capabilities.

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "stroke-lab",
   "name": "Stroke Lab",
-  "revision": "2",
+  "revision": "3",
   "style": "separate-strokes",
   "language": "en",
   "script": "Latn",
@@ -28,7 +28,7 @@
       "name": "Explore",
       "instruction": "Follow the example, then try writing without the trace.",
       "assessment": {
-        "algorithm": "geometry-v2",
+        "algorithm": "geometry-v3",
         "shapeTolerance": 0.015,
         "shapeFalloff": 0.24,
         "letterFalloff": 0.14,
@@ -36,7 +36,7 @@
         "positionFalloff": 0.5,
         "sizeTolerance": 0.2,
         "sizeFalloff": 0.9,
-        "matchTolerance": 0.05
+        "lengthAllowance": 2.0
       }
     },
     {
@@ -44,7 +44,7 @@
       "name": "Precise geometry",
       "instruction": "Use the same shape with a narrower geometric tolerance; this is not a validated skill grade.",
       "assessment": {
-        "algorithm": "geometry-v2",
+        "algorithm": "geometry-v3",
         "shapeTolerance": 0.01,
         "shapeFalloff": 0.18,
         "letterFalloff": 0.14,
@@ -52,7 +52,7 @@
         "positionFalloff": 0.5,
         "sizeTolerance": 0.2,
         "sizeFalloff": 0.9,
-        "matchTolerance": 0.05
+        "lengthAllowance": 2.0
       }
     }
   ],

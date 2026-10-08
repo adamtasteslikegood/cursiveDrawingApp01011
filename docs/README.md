@@ -28,3 +28,6 @@ The approximately 1,500-line conversation exports contain the original design di
 - [Prototype 1.3 iPad evaluation](ipad-prototype-1.3-evaluation.md): improved tracing scores, persistent false positives, working Stroke Lab modes, and the positioning regression addressed by 1.3.1.
 
 - [Prototype 1.4 scoring evidence](scoring-evidence-1.4.md): guide-controlled ink support/coverage, preserved v1 compatibility, paired synthetic positives/negatives and pending physical acceptance.
+
+- [1.4-final iPad evaluation](ipad-prototype-1.4-evaluation.md): improved false positives/centering, overly low totals, and Replay request.
+- [1.5 scoring evidence](scoring-evidence-1.5.md): independent-practice formula, compatibility and validation.

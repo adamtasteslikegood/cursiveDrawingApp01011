@@ -1,5 +1,7 @@
 # Prototype 1.4 — extra ink and model coverage
 
+**Follow-up:** the [1.4-final device trial](ipad-prototype-1.4-evaluation.md) reports improved false positives and centering but overly low totals. [Version 1.5](scoring-evidence-1.5.md) removes the coverage multipliers. The formula and results below describe 1.4.
+
 The owner selected **reduce high scores for scribbles while preserving tracing scores** after the [1.3 iPad trial](ipad-prototype-1.3-evaluation.md). That trial reported about 98% for tracing and about 75% for scribbling. This iteration addresses [CURS-20](https://tasteslikegood.atlassian.net/browse/CURS-20); physical scoring acceptance and the cause of the earlier 1.2 tracing ceiling remain open.
 
 ## Algorithm and guide identity
