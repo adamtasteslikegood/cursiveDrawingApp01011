@@ -22,7 +22,7 @@ Use a typed lesson kind and explicit text/occurrence tokens rather than passing 
 
 ## Selected instructional reference
 
-The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. Current `prototype-cursive` revision 1 remains accurate until that implementation work is complete.
+The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. The `prototype-cursive` identity remains provisional; revision 2 changes assessment settings, not the original glyph geometry or instructional alignment.
 
 ## Required interchangeable guide architecture
 
@@ -50,5 +50,7 @@ Proposed safeguards: personal handwriting capture/training is opt-in; model upda
 Persist primer ID/revision and provenance with each lesson and result. An adopted record should supply guide ratios, reviewed letter variants, ordered strokes, allowed pen lifts, entry/exit anchors, contextual join rules, acceptable deviations, source/reuse status, and review/calibration metadata. A selectable primer swaps rendering, lesson construction, and scoring together. Do not expose a selector for a primer whose assets/rules are absent.
 
 ## Validation
+
+Prototype 1.4 implements the owner's next priority using `geometry-v2`, selected by each guide profile. Separate weighted ink support and model coverage reduce scores when ink is away from the model or expected paths are absent. Exact semantics, compatibility and evidence are in [the 1.4 report](../docs/scoring-evidence-1.4.md). This is a geometry algorithm update; stroke-order/recognition and educational acceptance remain separate.
 
 Synthetic reference and negative tests check implementation behavior, not educational validity. Preserve original word-score regression coverage; test duplicate occurrences, local distortion, missing windows, sparse crossings, pen lifts, partial masks, serialization, and compact layout. The 1.2 iPad report confirms displayed lessons/animations and feedback rows but reports around 70% for unrelated ink and at most about 85% for tracing. Reproduce both findings with fixed input sequences; include repeated attempts and ink/result reset cases. Test exact model paths, traces, dense scribbles, unrelated words, and reviewed stylistic variants under a fixed guide revision. Do not invent a score cutoff from one report. Before higher-confidence instruction, evaluate against teacher-labeled samples, report ambiguity, and avoid converting uncertain geometric/recognition observations into confident corrective advice.

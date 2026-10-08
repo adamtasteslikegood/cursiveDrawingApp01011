@@ -24,7 +24,7 @@ Schema 1 intentionally cannot represent contextual glyph variants, bridging conn
 
 ## Examples and loading
 
-- [Prototype Cursive](../CursivePrototype.swiftpm/Guides/prototype-cursive.json): the original five glyphs and nine words, revision 1.
+- [Prototype Cursive](../CursivePrototype.swiftpm/Guides/prototype-cursive.json): the original five glyphs and nine words, revision 2; assessment changed, glyph geometry did not.
 - [E and EE example](../CursivePrototype.swiftpm/Guides/e-and-ee.example.json): complete importable guide with one existing letter and a two-letter connection.
 - [Stroke Lab](../CursivePrototype.swiftpm/Guides/stroke-lab.json): independent project-owned technical model with `x` and `l`, multiple strokes, lifted joins, different lines and two assessment profiles. It is not a curriculum alternative.
 
@@ -36,9 +36,11 @@ Bundled files live inside `CursivePrototype.swiftpm/Guides/` and are copied as S
 
 `geometry-v1` keeps the baseline formula: 60% symmetric nearest-path shape, 20% vertical placement, 20% height. Profiles supply shape/position/size tolerances and falloffs plus the per-letter falloff. Whole-word fitting preserves aspect ratio; letter windows remain guided estimates, not recognition. Shape/position tolerances use writing-band height units; size uses absolute log height ratio. A narrower profile does not constitute a validated skill level.
 
+`geometry-v2` adds `matchTolerance` (required, finite, 0.005–0.2 writing-band heights; bundled value 0.05). It uses a uniform least-squares extent fit, conservative translation refinement and arc-length support against actual separate polyline edges. Weighted ink support and model coverage multiply the shape/position/height composite. Support is full up to half `matchTolerance`, falls linearly to zero at the full tolerance, and stays zero beyond it. Results add optional `inkNearModel` and `modelCoverage` percentages. See [the 1.4 algorithm and evidence](scoring-evidence-1.4.md). V1 rejects `matchTolerance` rather than ignoring it. Original v1 guides remain importable; older apps reject v2 as unsupported. Schema 1's geometry and shaping capabilities are unchanged.
+
 The lesson holds the guide and profile by value for each analysis. Results serialize model ID/revision, profile ID, algorithm, style and language. These fields remain optional when reading historical reports. A guide editor must bump `revision` when geometry, instructions or assessment settings change; the importer cannot verify an author's revision history.
 
-No profile repairs the known false positives in `geometry-v1`. See [scoring evidence](scoring-evidence-1.3.md). Learned models and font capture need separate consent, provenance, revision and export designs before implementation.
+No profile repairs the known false positives in `geometry-v1`. See [historical scoring evidence](scoring-evidence-1.3.md). V2 reduces the tested synthetic failures; iPad calibration remains open. Learned models and font capture need separate consent, provenance, revision and export designs before implementation.
 
 ## Validation limits and checks
 

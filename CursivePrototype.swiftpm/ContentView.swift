@@ -222,6 +222,12 @@ struct ContentView: View {
           "Shape \(Int(practice.shape.rounded())) · Position \(Int(practice.placement.rounded())) · Height \(Int(practice.size.rounded()))"
         )
         .font(.subheadline)
+        if let near = practice.inkNearModel, let covered = practice.modelCoverage {
+          Text(
+            "Ink near example \(Int(near.rounded()))% · Example covered \(Int(covered.rounded()))%"
+          )
+          .font(.subheadline)
+        }
         ForEach(Array(practice.notes.enumerated()), id: \.offset) { _, note in Text(note) }
         Text("OCR read: \(evaluation.recognizedText)").font(.subheadline)
         if let note = report.recognitionNote { Text(note).font(.caption) }

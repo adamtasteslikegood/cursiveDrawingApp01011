@@ -5,7 +5,7 @@ repository_root="$PWD"
 harness="$repository_root/.build/analyzer-tests"
 mkdir -p "$harness/Tests/AnalyzerTests"
 # Compile the exact app source with tests in the same file to access fileprivate helpers.
-cat CursivePrototype.swiftpm/HandwritingGuide.swift CursivePrototype.swiftpm/PracticeLesson.swift CursivePrototype.swiftpm/CursiveAnalyzer.swift CursivePrototype.swiftpm/EvaluationState.swift Tests/ScoringFixtures.swift Tests/AnalyzerTests.swift > "$harness/Tests/AnalyzerTests/AnalyzerTests.swift"
+cat CursivePrototype.swiftpm/HandwritingGuide.swift CursivePrototype.swiftpm/PracticeLesson.swift CursivePrototype.swiftpm/CursiveAnalyzer.swift CursivePrototype.swiftpm/EvaluationState.swift Tests/ScoringFixtures.swift Tests/InkSupportFixtures.swift Tests/AnalyzerTests.swift > "$harness/Tests/AnalyzerTests/AnalyzerTests.swift"
 rm -rf "$harness/Tests/AnalyzerTests/Guides"
 cp -R CursivePrototype.swiftpm/Guides "$harness/Tests/AnalyzerTests/Guides"
 rm -rf "$harness/Tests/AnalyzerTests/Fixtures"

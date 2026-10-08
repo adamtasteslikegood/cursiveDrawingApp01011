@@ -26,3 +26,5 @@ The approximately 1,500-line conversation exports contain the original design di
 - [Guide format](guide-format.md), [model source assessment](model-source-assessment.md), [scoring reproduction](scoring-evidence-1.3.md) and [sprint 119](sprint-119.md): implemented 1.3 guide engine, retained baseline, source decisions and outstanding acceptance.
 
 - [Prototype 1.3 iPad evaluation](ipad-prototype-1.3-evaluation.md): improved tracing scores, persistent false positives, working Stroke Lab modes, and the positioning regression addressed by 1.3.1.
+
+- [Prototype 1.4 scoring evidence](scoring-evidence-1.4.md): guide-controlled ink support/coverage, preserved v1 compatibility, paired synthetic positives/negatives and pending physical acceptance.

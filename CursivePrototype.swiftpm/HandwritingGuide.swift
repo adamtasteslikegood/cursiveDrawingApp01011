@@ -51,6 +51,7 @@ struct HandwritingGuide: Codable, Equatable, Identifiable {
     let positionFalloff: Double
     let sizeTolerance: Double
     let sizeFalloff: Double
+    let matchTolerance: Double?
   }
 
   struct Point: Codable, Equatable {
@@ -192,7 +193,16 @@ struct HandwritingGuide: Codable, Equatable, Identifiable {
           !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }, "Profile names and instructions must contain visible text.")
       let a = profile.assessment
-      try require(a.algorithm == "geometry-v1", "Unsupported assessment algorithm: \(a.algorithm).")
+      try require(
+        ["geometry-v1", "geometry-v2"].contains(a.algorithm),
+        "Unsupported assessment algorithm: \(a.algorithm).")
+      if a.algorithm == "geometry-v2" {
+        try require(
+          a.matchTolerance.map { $0.isFinite && $0 >= 0.005 && $0 <= 0.2 } == true,
+          "geometry-v2 requires matchTolerance between 0.005 and 0.2 writing-band heights.")
+      } else {
+        try require(a.matchTolerance == nil, "geometry-v1 does not use matchTolerance.")
+      }
       try require(
         [a.shapeTolerance, a.positionTolerance, a.sizeTolerance].allSatisfy {
           $0.isFinite && $0 >= 0 && $0 <= 1

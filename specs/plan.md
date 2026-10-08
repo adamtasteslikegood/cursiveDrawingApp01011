@@ -30,3 +30,9 @@ The 1.2 device trial is recorded in `docs/ipad-prototype-1.2-evaluation.md`: les
 ## Sprint 119 delivery — 2026-10-07
 
 The [sprint record](../docs/sprint-119.md) maps CURS-6/7/8/17 to implemented evidence and remaining acceptance. Prototype 1.3 delivers schema validation, three guide JSON examples, data-driven composition/rendering/scoring, session import and guide/profile switching. The original five glyphs and score behavior remain unchanged. Source assessment identifies specific alignment gaps; synthetic probes reproduce high unrelated-ink scores. Contextual model alignment, device tracing reproduction and owner/device review remain open. Sprint dates/estimates and completion have not been invented.
+
+## Owner-selected follow-up — 2026-10-07
+
+The owner tested 1.3, authorized merging PR #6, and requested comfortable paper positioning. PR #7 provides version 1.3.1 with persistent viewport-relative scroll space. The owner then selected reducing high scribble scores while preserving tracing as the next analysis priority.
+
+Prototype 1.4 adds a separately versioned guide-controlled scorer, paired positive/negative probes, explicit ink/model support feedback and preserved v1 compatibility. It depends on the positioning patch and retains the original glyph curves. Use [the 1.4 evidence and device protocol](../docs/scoring-evidence-1.4.md) before accepting CURS-20/CURS-21. First-five-letter and contextual-connection review remain open; stroke order, new lesson families and curriculum alignment are subsequent work, not implied by a lower scribble score.

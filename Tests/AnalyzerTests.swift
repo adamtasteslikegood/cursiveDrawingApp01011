@@ -611,7 +611,7 @@ final class GuideFoundationTests: XCTestCase {
         XCTAssertEqual(result.score, 100, accuracy: 0.001)
         XCTAssertEqual(result.primerID, model.id)
         XCTAssertEqual(result.profileID, model.profiles[0].id)
-        XCTAssertEqual(result.assessmentAlgorithm, "geometry-v1")
+        XCTAssertEqual(result.assessmentAlgorithm, model.profiles[0].assessment.algorithm)
       }
     }
     let laboratory = GuideLibrary.all[1]
@@ -811,6 +811,160 @@ final class GuideFoundationTests: XCTestCase {
   }
 }
 
+final class InkSupportScoringTests: XCTestCase {
+  func testFaithfulAndWobblyTracesStayHighAcrossGuidesProfilesAndCanvasSizes() {
+    for model in GuideLibrary.all {
+      for profile in model.profiles {
+        for lesson in PracticeLesson.lessons(in: model, profile: profile) {
+          XCTAssertEqual(profile.assessment.algorithm, "geometry-v2")
+          for canvas in [
+            CGSize(width: 288, height: 220), CGSize(width: 700, height: 320),
+            CGSize(width: 1024, height: 360),
+          ] {
+            let guide = WritingGuide(size: canvas, wordWidth: lesson.width, lines: model.lines)
+            let reference = lesson.referenceStrokes(in: guide)
+            let exact = LessonScorer.evaluate(strokes: reference, lesson: lesson, guide: guide)
+            XCTAssertEqual(exact.score, 100, accuracy: 0.001)
+            XCTAssertEqual(exact.inkNearModel, 100)
+            XCTAssertEqual(exact.modelCoverage, 100)
+            let jitter = InkSupportFixtures.jitter(reference, height: guide.height)
+            let noisy = LessonScorer.evaluate(strokes: jitter, lesson: lesson, guide: guide)
+            XCTAssertGreaterThan(
+              noisy.score, 90, "\(model.id)/\(profile.id)/\(lesson.word): \(canvas)")
+          }
+        }
+      }
+    }
+  }
+
+  func testUnrelatedInkCannotEarnAHighMatchInEitherGuide() {
+    for model in GuideLibrary.all {
+      for profile in model.profiles {
+        for lesson in PracticeLesson.lessons(in: model, profile: profile) {
+          let guide = WritingGuide(
+            size: CGSize(width: 700, height: 320), wordWidth: lesson.width, lines: model.lines)
+          for (name, strokes) in ScoringFixtures.cases(lesson: lesson, guide: guide)
+          where name.hasPrefix("unrelated-") {
+            let result = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+            XCTAssertLessThan(result.score, 50, "\(model.id)/\(profile.id)/\(lesson.word): \(name)")
+          }
+        }
+      }
+    }
+  }
+
+  func testAddingScribblesToACompleteTraceLowersTheMatch() throws {
+    for model in GuideLibrary.all {
+      for lesson in PracticeLesson.lessons(in: model) {
+        let guide = WritingGuide(
+          size: CGSize(width: 700, height: 320), wordWidth: lesson.width, lines: model.lines)
+        let reference = lesson.referenceStrokes(in: guide)
+        let scribble = try XCTUnwrap(
+          ScoringFixtures.cases(lesson: lesson, guide: guide).first {
+            $0.0 == "unrelated-crosshatch"
+          }
+        ).1
+        let result = LessonScorer.evaluate(
+          strokes: reference + scribble, lesson: lesson, guide: guide)
+        XCTAssertLessThan(result.score, 60, "\(model.id)/\(lesson.word)")
+        XCTAssertLessThan(try XCTUnwrap(result.inkNearModel), 65)
+        XCTAssertEqual(try XCTUnwrap(result.modelCoverage), 100, accuracy: 0.001)
+      }
+    }
+  }
+
+  func testSeededScribblesStayLowAcrossCanvasSizes() {
+    for model in GuideLibrary.all {
+      for lesson in PracticeLesson.lessons(in: model) {
+        for canvas in [CGSize(width: 288, height: 220), CGSize(width: 1024, height: 360)] {
+          let guide = WritingGuide(size: canvas, wordWidth: lesson.width, lines: model.lines)
+          for seed: UInt64 in [1, 42, 2026] {
+            let ink = InkSupportFixtures.scribble(
+              reference: lesson.referenceStrokes(in: guide), seed: seed)
+            let result = LessonScorer.evaluate(strokes: ink, lesson: lesson, guide: guide)
+            XCTAssertLessThan(result.score, 50, "\(model.id)/\(lesson.word), seed \(seed)")
+          }
+        }
+      }
+    }
+  }
+
+  func testRetracingIsNotTreatedAsUnrelatedInkOrAStrokeOrderGrade() {
+    for model in GuideLibrary.all {
+      for lesson in PracticeLesson.lessons(in: model) {
+        let guide = WritingGuide(
+          size: CGSize(width: 700, height: 320), wordWidth: lesson.width, lines: model.lines)
+        let reference = lesson.referenceStrokes(in: guide)
+        let cases = [
+          reference + reference, reference.map { Array($0.reversed()) },
+          Array(reference.reversed()),
+        ]
+        for strokes in cases {
+          let result = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+          XCTAssertGreaterThan(result.score, 98)
+          XCTAssertEqual(result.inkNearModel, 100)
+          XCTAssertEqual(result.modelCoverage, 100)
+        }
+      }
+    }
+  }
+
+  func testMissingVisibleRangesAreNotFilledAcrossSeparatePaths() throws {
+    let model = GuideLibrary.all[1]
+    let lesson = PracticeLesson.lessons(in: model)[0]
+    XCTAssertEqual(lesson.word, "x")
+    let guide = WritingGuide(
+      size: CGSize(width: 700, height: 320), wordWidth: lesson.width, lines: model.lines)
+    let reference = lesson.referenceStrokes(in: guide)
+    let gapped = reference.flatMap { stroke in
+      [Array(stroke.prefix(7)), Array(stroke.suffix(7))]
+    }
+    let result = LessonScorer.evaluate(strokes: gapped, lesson: lesson, guide: guide)
+    XCTAssertEqual(try XCTUnwrap(result.inkNearModel), 100, accuracy: 0.001)
+    XCTAssertLessThan(try XCTUnwrap(result.modelCoverage), 75)
+    let missingStroke = LessonScorer.evaluate(
+      strokes: [reference[0]], lesson: lesson, guide: guide)
+    XCTAssertLessThan(try XCTUnwrap(missingStroke.modelCoverage), 65)
+    XCTAssertLessThan(missingStroke.score, 60)
+  }
+
+  func testSupportSurvivesSerializationAndCollinearResampling() throws {
+    let lesson = PracticeLesson.all[0]
+    let guide = WritingGuide(size: CGSize(width: 700, height: 320), wordWidth: lesson.width)
+    let reference = lesson.referenceStrokes(in: guide)
+    let dense: [[CGPoint]] = reference.map { stroke in
+      var points: [CGPoint] = []
+      for (a, b) in zip(stroke, stroke.dropFirst()) {
+        points.append(a)
+        points.append(CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2))
+      }
+      points.append(stroke.last!)
+      return points
+    }
+    let result = LessonScorer.evaluate(strokes: dense, lesson: lesson, guide: guide)
+    XCTAssertEqual(result.score, 100, accuracy: 0.001)
+    let decoded = try JSONDecoder().decode(
+      PracticeFeedback.self, from: JSONEncoder().encode(result))
+    XCTAssertEqual(decoded.inkNearModel, 100)
+    XCTAssertEqual(decoded.modelCoverage, 100)
+    XCTAssertEqual(decoded.assessmentAlgorithm, "geometry-v2")
+  }
+
+  func testV2RequiresAnExplicitValidMatchingTolerance() throws {
+    let encoded = try JSONEncoder().encode(GuideLibrary.prototype)
+    for bad in [NSNull(), -0.01, 0, 0.201, "loose"] as [Any] {
+      var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+      var profiles = object["profiles"] as! [[String: Any]]
+      var assessment = profiles[0]["assessment"] as! [String: Any]
+      assessment["matchTolerance"] = bad
+      profiles[0]["assessment"] = assessment
+      object["profiles"] = profiles
+      XCTAssertThrowsError(
+        try HandwritingGuide.decode(JSONSerialization.data(withJSONObject: object)))
+    }
+  }
+}
+
 final class GuideMigrationTests: XCTestCase {
   func testGuideMigrationPreservesBaselineIncludingKnownFalsePositives() throws {
     struct Baseline: Decodable { let records: [Record] }
@@ -827,7 +981,21 @@ final class GuideMigrationTests: XCTestCase {
         forResource: "geometry-v1-baseline", withExtension: "json", subdirectory: "Fixtures"))
     let baseline = try JSONDecoder().decode(Baseline.self, from: Data(contentsOf: url))
     XCTAssertEqual(baseline.records.count, 36)
-    for lesson in PracticeLesson.all {
+    // Keep the original algorithm and its known bad scores as an explicit compatibility
+    // check. The v2 tests above require different behavior without rewriting this fixture.
+    var object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(GuideLibrary.prototype))
+        as? [String: Any])
+    var profiles = object["profiles"] as! [[String: Any]]
+    for index in profiles.indices {
+      var assessment = profiles[index]["assessment"] as! [String: Any]
+      assessment["algorithm"] = "geometry-v1"
+      assessment.removeValue(forKey: "matchTolerance")
+      profiles[index]["assessment"] = assessment
+    }
+    object["profiles"] = profiles
+    let legacy = try HandwritingGuide.decode(JSONSerialization.data(withJSONObject: object))
+    for lesson in PracticeLesson.lessons(in: legacy) {
       let guide = WritingGuide(size: CGSize(width: 700, height: 320), wordWidth: lesson.width)
       for (name, strokes) in ScoringFixtures.cases(lesson: lesson, guide: guide) {
         let expected = try XCTUnwrap(
@@ -837,6 +1005,8 @@ final class GuideMigrationTests: XCTestCase {
         XCTAssertEqual(actual.shape, expected.shape, accuracy: 0.000001)
         XCTAssertEqual(actual.placement, expected.placement, accuracy: 0.000001)
         XCTAssertEqual(actual.size, expected.height, accuracy: 0.000001)
+        XCTAssertNil(actual.inkNearModel)
+        XCTAssertNil(actual.modelCoverage)
       }
     }
   }

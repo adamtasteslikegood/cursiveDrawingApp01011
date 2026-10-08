@@ -12,7 +12,7 @@ struct PracticeLesson: Identifiable, Equatable {
   let id: String
   let model: HandwritingGuide
   let profile: HandwritingGuide.Profile
-  static let revision = "Lesson prototype 1.3.1 · 2026-10-07"
+  static let revision = "Lesson prototype 1.4 · 2026-10-07"
   static let all = lessons(in: GuideLibrary.prototype)
 
   init(
@@ -157,6 +157,8 @@ struct PracticeFeedback: Codable {
   var assessmentAlgorithm: String? = nil
   var modelStyle: String? = nil
   var modelLanguage: String? = nil
+  var inkNearModel: Double? = nil
+  var modelCoverage: Double? = nil
 }
 
 /// Geometry-only practice feedback; does not infer speed, joins, stroke order, or educational mastery.
@@ -184,14 +186,32 @@ struct LessonScorer {
         modelStyle: lesson.model.style, modelLanguage: lesson.model.language)
     }
     // Uniform fitting keeps aspect ratio; translation and overall size are judged separately.
-    let scale = min(
-      referenceBounds.width / inkBounds.width, referenceBounds.height / inkBounds.height)
-    let fitted = strokes.map { stroke in
+    let usesInkSupport = parameters.algorithm == "geometry-v2"
+    let scale: CGFloat
+    if usesInkSupport {
+      // Fit both extents with one least-squares scale. A little height variation must
+      // not shrink a long, otherwise faithful trace across all its letter windows.
+      scale =
+        (referenceBounds.width * inkBounds.width + referenceBounds.height * inkBounds.height)
+        / (inkBounds.width * inkBounds.width + inkBounds.height * inkBounds.height)
+    } else {
+      scale = min(
+        referenceBounds.width / inkBounds.width, referenceBounds.height / inkBounds.height)
+    }
+    var fitted = strokes.map { stroke in
       stroke.map {
         CGPoint(
           x: ($0.x - inkBounds.midX) * scale + referenceBounds.midX,
           y: ($0.y - inkBounds.midY) * scale + referenceBounds.midY)
       }
+    }
+    var support: (ink: Double, model: Double)?
+    if usesInkSupport {
+      // Validated v2 profiles supply this distance in writing-band heights.
+      let refined = refineFit(
+        fitted, reference: referenceStrokes, tolerance: guide.height * parameters.matchTolerance!)
+      fitted = refined.strokes
+      support = (refined.ink, refined.model)
     }
     let a = sample(fitted)
     let b = sample(referenceStrokes)
@@ -209,6 +229,14 @@ struct LessonScorer {
     let size = clamp(
       100 * (1 - max(0, sizeError - parameters.sizeTolerance) / parameters.sizeFalloff))
     var notes: [String] = []
+    if let support {
+      if support.ink < 0.75 {
+        notes.append("Much of the ink is away from the example. Clear and try following its paths.")
+      }
+      if support.model < 0.75 {
+        notes.append("Parts of the example are missing from your trace. Try completing its paths.")
+      }
+    }
     if shape < 75 {
       notes.append(
         "Compare the loops and letter order with the example; try tracing the guide once.")
@@ -230,12 +258,130 @@ struct LessonScorer {
       )
     }
     return PracticeFeedback(
-      score: shape * 0.60 + placement * 0.20 + size * 0.20,
+      score: (shape * 0.60 + placement * 0.20 + size * 0.20)
+        * (support?.ink ?? 1) * (support?.model ?? 1),
       shape: shape, placement: placement, size: size, notes: notes,
       letters: letterFeedback(fitted: fitted, lesson: lesson, guide: guide),
       primerID: lesson.primer.id, primerRevision: lesson.primer.revision,
       profileID: lesson.profile.id, assessmentAlgorithm: parameters.algorithm,
-      modelStyle: lesson.model.style, modelLanguage: lesson.model.language)
+      modelStyle: lesson.model.style, modelLanguage: lesson.model.language,
+      inkNearModel: support.map { $0.ink * 100 }, modelCoverage: support.map { $0.model * 100 })
+  }
+
+  private struct InkEdge {
+    let start: CGPoint
+    let dx: CGFloat
+    let dy: CGFloat
+    let length: CGFloat
+
+    init(_ start: CGPoint, _ end: CGPoint) {
+      self.start = start
+      dx = end.x - start.x
+      dy = end.y - start.y
+      length = hypot(dx, dy)
+    }
+
+    func point(at fraction: CGFloat) -> CGPoint {
+      CGPoint(x: start.x + dx * fraction, y: start.y + dy * fraction)
+    }
+
+    func nearestPoint(to point: CGPoint) -> CGPoint {
+      let fraction = max(
+        0, min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / (length * length)))
+      return self.point(at: fraction)
+    }
+
+    func support(_ point: CGPoint, within tolerance: CGFloat) -> Double {
+      let nearest = nearestPoint(to: point)
+      let distance = hypot(point.x - nearest.x, point.y - nearest.y)
+      // Full support inside half the tolerance, falling smoothly to zero at its edge.
+      return Double(max(0, min(1, 2 * (1 - distance / tolerance))))
+    }
+  }
+
+  private static func edges(_ paths: [[CGPoint]]) -> [InkEdge] {
+    paths.flatMap { stroke in
+      zip(stroke, stroke.dropFirst()).map { InkEdge($0.0, $0.1) }.filter { $0.length > 0 }
+    }
+  }
+
+  /// Refine translation without changing scale, rotation or stroke identity. Accept a
+  /// candidate only when neither ink support nor model coverage gets worse: extra ink
+  /// must not pull an already complete trace away from the model.
+  private static func refineFit(
+    _ initial: [[CGPoint]], reference: [[CGPoint]], tolerance: CGFloat
+  ) -> (strokes: [[CGPoint]], ink: Double, model: Double) {
+    let expected = edges(reference)
+    var candidate = initial
+    var best = initial
+    var support = pathSupport(ink: initial, reference: reference, tolerance: tolerance)
+    guard !expected.isEmpty, !edges(initial).isEmpty else {
+      return (best, support.ink, support.model)
+    }
+    for _ in 0..<5 {
+      let points = sample(candidate)
+      var x: CGFloat = 0
+      var y: CGFloat = 0
+      for point in points {
+        var closest = point
+        var distance = CGFloat.greatestFiniteMagnitude
+        for edge in expected {
+          let nearby = edge.nearestPoint(to: point)
+          let next = hypot(nearby.x - point.x, nearby.y - point.y)
+          if next < distance {
+            closest = nearby
+            distance = next
+          }
+        }
+        x += closest.x - point.x
+        y += closest.y - point.y
+      }
+      x /= CGFloat(points.count)
+      y /= CGFloat(points.count)
+      if hypot(x, y) < tolerance * 0.0001 { break }
+      candidate = candidate.map { $0.map { CGPoint(x: $0.x + x, y: $0.y + y) } }
+      let next = pathSupport(ink: candidate, reference: reference, tolerance: tolerance)
+      if next.ink >= support.ink && next.model >= support.model {
+        best = candidate
+        support = next
+      }
+    }
+    return (best, support.ink, support.model)
+  }
+
+  /// Arc-length support against actual polyline segments, never edges across pen lifts.
+  /// Sampling is bounded and counts travel uniformly; it does not grade direction/order.
+  private static func pathSupport(
+    ink: [[CGPoint]], reference: [[CGPoint]], tolerance: CGFloat
+  ) -> (ink: Double, model: Double) {
+    let actual = edges(ink)
+    let expected = edges(reference)
+    guard !actual.isEmpty, !expected.isEmpty else { return (0, 0) }
+
+    func fraction(_ source: [InkEdge], near target: [InkEdge]) -> Double {
+      let total = source.reduce(CGFloat(0)) { $0 + $1.length }
+      let count = 512
+      var index = 0
+      var consumed: CGFloat = 0
+      var matched = 0.0
+      for sample in 0..<count {
+        let distance = total * (CGFloat(sample) + 0.5) / CGFloat(count)
+        while index < source.count - 1 && consumed + source[index].length < distance {
+          consumed += source[index].length
+          index += 1
+        }
+        let edge = source[index]
+        let point = edge.point(at: (distance - consumed) / edge.length)
+        var best = 0.0
+        for edge in target {
+          best = max(best, edge.support(point, within: tolerance))
+          if best == 1 { break }
+        }
+        matched += best
+      }
+      return Double(matched) / Double(count)
+    }
+    return (fraction(actual, near: expected), fraction(expected, near: actual))
   }
 
   private static func letterFeedback(
