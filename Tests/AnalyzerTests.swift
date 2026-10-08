@@ -312,7 +312,7 @@ final class LessonTests: XCTestCase {
     for size in [CGSize(width: 288, height: 220), canvas, CGSize(width: 1100, height: 360)] {
       for lesson in PracticeLesson.all {
         let guide = WritingGuide(size: size, wordWidth: lesson.width)
-        XCTAssertEqual(guide.middle, (guide.top + guide.baseline) / 2)
+        XCTAssertEqual(guide.middle, (guide.top + guide.baseline) / 2, accuracy: 0.000001)
         XCTAssertGreaterThan(guide.top, 0)
         XCTAssertLessThan(guide.descender, size.height)
         for point in lesson.referencePoints(in: guide) {
@@ -332,7 +332,7 @@ final class LessonTests: XCTestCase {
     let result = LessonScorer.evaluate(strokes: [points], lesson: lesson, guide: guide)
     XCTAssertEqual(result.shape, 100, accuracy: 0.001)
     XCTAssertEqual(result.placement, 0, accuracy: 0.001)
-    XCTAssertTrue(result.notes.contains { $0.contains("highlighted band") })
+    XCTAssertTrue(result.notes.contains { $0.contains("guide lines") })
   }
 
   func testUniformSizeChangePreservesShapeButLowersHeightMatch() {
@@ -590,3 +590,266 @@ final class AdvancedLetterTests: XCTestCase {
     }
   }
 #endif
+
+final class GuideFoundationTests: XCTestCase {
+  private func alteredGuide(_ change: (inout [String: Any]) -> Void) throws -> HandwritingGuide {
+    var object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(GuideLibrary.prototype))
+        as? [String: Any])
+    change(&object)
+    return try HandwritingGuide.decode(JSONSerialization.data(withJSONObject: object))
+  }
+
+  func testBundledGuidesRoundTripAndNewGlyphHasSeparateStrokes() throws {
+    for model in GuideLibrary.all {
+      XCTAssertEqual(try HandwritingGuide.decode(JSONEncoder().encode(model)), model)
+      for lesson in PracticeLesson.lessons(in: model) {
+        let guide = WritingGuide(
+          size: CGSize(width: 700, height: 320), wordWidth: lesson.width, lines: model.lines)
+        let result = LessonScorer.evaluate(
+          strokes: lesson.referenceStrokes(in: guide), lesson: lesson, guide: guide)
+        XCTAssertEqual(result.score, 100, accuracy: 0.001)
+        XCTAssertEqual(result.primerID, model.id)
+        XCTAssertEqual(result.profileID, model.profiles[0].id)
+        XCTAssertEqual(result.assessmentAlgorithm, "geometry-v1")
+      }
+    }
+    let laboratory = GuideLibrary.all[1]
+    let lesson = PracticeLesson.lessons(in: laboratory)[1]
+    XCTAssertEqual(lesson.word, "xl")
+    XCTAssertEqual(lesson.modelStrokes.count, 3)
+    XCTAssertNotEqual(lesson.modelStrokes[0].last, lesson.modelStrokes[1].first)
+    let guide = WritingGuide(
+      size: CGSize(width: 288, height: 220), wordWidth: lesson.width, lines: laboratory.lines)
+    XCTAssertEqual(guide.middle, guide.top + guide.height * 0.6, accuracy: 0.000001)
+    let result = LessonScorer.evaluate(
+      strokes: lesson.referenceStrokes(in: guide), lesson: lesson, guide: guide)
+    XCTAssertTrue(result.letters!.allSatisfy { $0.incomingJoin == nil })
+  }
+
+  func testGuideProfileChangesAssessmentAndRoundTripsItsIdentity() throws {
+    let model = GuideLibrary.all[1]
+    let easy = PracticeLesson.lessons(in: model)[1]
+    let precise = PracticeLesson.lessons(in: model, profile: model.profiles[1])[1]
+    let guide = WritingGuide(
+      size: CGSize(width: 700, height: 320), wordWidth: easy.width, lines: model.lines)
+    let strokes = easy.referenceStrokes(in: guide).map { stroke in
+      stroke.map { point in
+        CGPoint(x: guide.originX + (point.x - guide.originX) * 0.6, y: point.y)
+      }
+    }
+    let a = LessonScorer.evaluate(strokes: strokes, lesson: easy, guide: guide)
+    let b = LessonScorer.evaluate(strokes: strokes, lesson: precise, guide: guide)
+    XCTAssertGreaterThan(a.shape, b.shape)
+    XCTAssertEqual(easy.modelStrokes, precise.modelStrokes)
+    let decoded = try JSONDecoder().decode(PracticeFeedback.self, from: JSONEncoder().encode(b))
+    XCTAssertEqual(decoded.profileID, "precise")
+    XCTAssertEqual(decoded.modelStyle, model.style)
+    XCTAssertEqual(decoded.modelLanguage, model.language)
+    XCTAssertEqual(decoded.primerRevision, model.revision)
+  }
+
+  func testUnknownCapabilitiesGlyphsAndDuplicateIdentityAreRejected() {
+    for field in ["schemaVersion", "direction"] {
+      XCTAssertThrowsError(
+        try alteredGuide { $0[field] = field == "schemaVersion" ? 99 : "rightToLeft" })
+    }
+    XCTAssertThrowsError(
+      try alteredGuide { object in
+        var lessons = object["lessons"] as! [[String: Any]]
+        lessons[0]["text"] = "unknown"
+        object["lessons"] = lessons
+      })
+    XCTAssertThrowsError(
+      try alteredGuide { object in
+        var glyphs = object["glyphs"] as! [[String: Any]]
+        glyphs.append(glyphs[0])
+        object["glyphs"] = glyphs
+      })
+    XCTAssertThrowsError(try alteredGuide { $0.removeValue(forKey: "provenance") })
+    XCTAssertThrowsError(try alteredGuide { $0["joins"] = [] })
+    XCTAssertThrowsError(try alteredGuide { $0["contextualVariants"] = ["unimplemented"] })
+    XCTAssertThrowsError(
+      try HandwritingGuide.decode(Data(repeating: 32, count: HandwritingGuide.maximumBytes + 1)))
+  }
+
+  func testNewUnicodeGlyphLoadsWithoutAnEngineBranch() throws {
+    var object = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: JSONEncoder().encode(GuideLibrary.all[1]))
+        as? [String: Any])
+    object["language"] = "es"
+    var glyphs = object["glyphs"] as! [[String: Any]]
+    glyphs[0]["symbol"] = "ñ"
+    object["glyphs"] = glyphs
+    for field in ["joins", "lessons"] {
+      var rows = object[field] as! [[String: Any]]
+      for i in rows.indices {
+        for key in (field == "joins" ? ["left", "right"] : ["id", "text"]) {
+          rows[i][key] = (rows[i][key] as! String).replacingOccurrences(of: "x", with: "ñ")
+        }
+      }
+      object[field] = rows
+    }
+    let data = try JSONSerialization.data(withJSONObject: object)
+    let model = try HandwritingGuide.decode(data)
+    let lesson = PracticeLesson.lessons(in: model)[0]
+    XCTAssertEqual(lesson.word, "ñ")
+    XCTAssertEqual(lesson.letters[0].letter, "ñ")
+    XCTAssertEqual(lesson.modelStrokes.count, 2)
+    // The shape is deliberately unchanged: accepting inventory data does not validate Spanish instruction.
+  }
+
+  func testShortDescenderUsesNormalizedBaselineInsteadOfPrototypeThreshold() throws {
+    let model = try alteredGuide { object in
+      func compress(_ value: Any) -> Any {
+        if var point = value as? [String: Double], point["x"] != nil, let y = point["y"] {
+          point["y"] = y * 1.05 / 1.35
+          return point
+        }
+        if let fields = value as? [String: Any] { return fields.mapValues(compress) }
+        if let values = value as? [Any] { return values.map(compress) }
+        return value
+      }
+      object["glyphs"] = compress(object["glyphs"]!)
+      var lines = object["lines"] as! [String: Any]
+      lines["descender"] = 1.05
+      object["lines"] = lines
+    }
+    let lesson = PracticeLesson(word: "p", focus: "Short descender", model: model)
+    XCTAssertTrue(lesson.showsDescender)
+    XCTAssertLessThanOrEqual(lesson.modelPoints.map { $0.y }.max()!, 1.05 + 0.000001)
+    XCTAssertFalse(PracticeLesson.lessons(in: GuideLibrary.all[1])[0].showsDescender)
+  }
+
+  func testImportedGuidesRequireVisibleLabelsAndInstructions() {
+    for value in ["", " \n\t "] {
+      for field in ["topLabel", "middleLabel", "baselineLabel"] {
+        XCTAssertThrowsError(
+          try alteredGuide { object in
+            var lines = object["lines"] as! [String: Any]
+            lines[field] = value
+            object["lines"] = lines
+          })
+      }
+      for (collection, fields) in [
+        ("profiles", ["name", "instruction"]), ("glyphs", ["instruction"]),
+        ("lessons", ["instruction"]),
+      ] {
+        for field in fields {
+          XCTAssertThrowsError(
+            try alteredGuide { object in
+              var rows = object[collection] as! [[String: Any]]
+              rows[0][field] = value
+              object[collection] = rows
+            })
+        }
+      }
+    }
+  }
+
+  func testInvalidLinesAssessmentGeometryAndJoinsAreRejected() {
+    XCTAssertThrowsError(
+      try alteredGuide { object in
+        var lines = object["lines"] as! [String: Any]
+        lines["midline"] = 1
+        object["lines"] = lines
+      })
+    for value in [0.0, -1.0] {
+      XCTAssertThrowsError(
+        try alteredGuide { object in
+          var profiles = object["profiles"] as! [[String: Any]]
+          var parameters = profiles[0]["assessment"] as! [String: Any]
+          parameters["shapeFalloff"] = value
+          profiles[0]["assessment"] = parameters
+          object["profiles"] = profiles
+        })
+    }
+    XCTAssertThrowsError(
+      try alteredGuide { object in
+        var glyphs = object["glyphs"] as! [[String: Any]]
+        glyphs[0]["advance"] = 0.9  // Existing continuous endpoints no longer meet.
+        object["glyphs"] = glyphs
+      })
+    XCTAssertThrowsError(
+      try alteredGuide { object in
+        var glyphs = object["glyphs"] as! [[String: Any]]
+        glyphs[0]["entry"] = ["x": 0, "y": 0]
+        object["glyphs"] = glyphs
+      })
+  }
+
+  func testConnectionsUseGuideAnchorInsteadOfAssumingBaseline() throws {
+    let model = try alteredGuide { object in
+      var glyphs = object["glyphs"] as! [[String: Any]]
+      func raised(_ point: [String: Double]) -> [String: Double] {
+        ["x": point["x"]!, "y": point["y"]! * 0.5]
+      }
+      for i in glyphs.indices {
+        glyphs[i]["entry"] = raised(glyphs[i]["entry"] as! [String: Double])
+        glyphs[i]["exit"] = raised(glyphs[i]["exit"] as! [String: Double])
+        var strokes = glyphs[i]["strokes"] as! [[String: Any]]
+        for j in strokes.indices {
+          strokes[j]["start"] = raised(strokes[j]["start"] as! [String: Double])
+          var curves = strokes[j]["curves"] as! [[String: Any]]
+          for k in curves.indices {
+            for field in ["control1", "control2", "end"] {
+              curves[k][field] = raised(curves[k][field] as! [String: Double])
+            }
+          }
+          strokes[j]["curves"] = curves
+        }
+        glyphs[i]["strokes"] = strokes
+      }
+      object["glyphs"] = glyphs
+    }
+    let lesson = PracticeLesson.lessons(in: model)[0]
+    let guide = WritingGuide(
+      size: CGSize(width: 700, height: 320), wordWidth: lesson.width, lines: model.lines)
+    let score = LessonScorer.evaluate(
+      strokes: lesson.referenceStrokes(in: guide), lesson: lesson, guide: guide)
+    XCTAssertTrue(score.letters!.dropFirst().allSatisfy { $0.incomingJoin?.continuousInk == true })
+  }
+}
+
+final class GuideMigrationTests: XCTestCase {
+  func testGuideMigrationPreservesBaselineIncludingKnownFalsePositives() throws {
+    struct Baseline: Decodable { let records: [Record] }
+    struct Record: Decodable {
+      let word: String
+      let probe: String
+      let score: Double
+      let shape: Double
+      let placement: Double
+      let height: Double
+    }
+    let url = try XCTUnwrap(
+      Bundle.module.url(
+        forResource: "geometry-v1-baseline", withExtension: "json", subdirectory: "Fixtures"))
+    let baseline = try JSONDecoder().decode(Baseline.self, from: Data(contentsOf: url))
+    XCTAssertEqual(baseline.records.count, 36)
+    for lesson in PracticeLesson.all {
+      let guide = WritingGuide(size: CGSize(width: 700, height: 320), wordWidth: lesson.width)
+      for (name, strokes) in ScoringFixtures.cases(lesson: lesson, guide: guide) {
+        let expected = try XCTUnwrap(
+          baseline.records.first { $0.word == lesson.word && $0.probe == name })
+        let actual = LessonScorer.evaluate(strokes: strokes, lesson: lesson, guide: guide)
+        XCTAssertEqual(actual.score, expected.score, accuracy: 0.000001, "\(lesson.word): \(name)")
+        XCTAssertEqual(actual.shape, expected.shape, accuracy: 0.000001)
+        XCTAssertEqual(actual.placement, expected.placement, accuracy: 0.000001)
+        XCTAssertEqual(actual.size, expected.height, accuracy: 0.000001)
+      }
+    }
+  }
+
+  func testImportableLetterAndCombinationExampleUsesExactBaselineGlyph() throws {
+    let url = try XCTUnwrap(
+      Bundle.module.url(
+        forResource: "e-and-ee.example", withExtension: "json", subdirectory: "Guides"))
+    let model = try HandwritingGuide.decode(Data(contentsOf: url))
+    XCTAssertEqual(model.glyph("e"), GuideLibrary.prototype.glyph("e"))
+    let lessons = PracticeLesson.lessons(in: model)
+    XCTAssertEqual(lessons.map { $0.word }, ["e", "ee"])
+    XCTAssertEqual(lessons[1].letters.count, 2)
+    XCTAssertEqual(lessons[1].modelStrokes.count, 1)
+  }
+}

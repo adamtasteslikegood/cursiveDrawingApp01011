@@ -1,11 +1,17 @@
 import PencilKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var canvasView = AttachedWritingCanvas()
   @State private var toolPicker = PKToolPicker()
   @State private var evaluation = EvaluationState()
+  @State private var models = GuideLibrary.all
+  @State private var modelID = GuideLibrary.prototype.id
+  @State private var profileID = GuideLibrary.prototype.profiles[0].id
+  @State private var importsGuide = false
+  @State private var importError: String?
   @State private var setID = 1
   @State private var lessonID = PracticeLesson.all[0].id
   @State private var showsTrace = true
@@ -13,31 +19,37 @@ struct ContentView: View {
   @State private var ghostProgress: CGFloat = 1
   @State private var layoutChangedDuringAnalysis = false
 
-  private var lesson: PracticeLesson { PracticeLesson.all.first { $0.id == lessonID }! }
+  private var model: HandwritingGuide { models.first { $0.id == modelID } ?? models[0] }
+  private var profile: HandwritingGuide.Profile {
+    model.profiles.first { $0.id == profileID } ?? model.profiles[0]
+  }
+  private var lessons: [PracticeLesson] { PracticeLesson.lessons(in: model, profile: profile) }
+  private var lesson: PracticeLesson { lessons.first { $0.id == lessonID } ?? lessons[0] }
 
   var body: some View {
     GeometryReader { geometry in
       let height = min(360, max(220, geometry.size.height * 0.45))
       let canvasSize = CGSize(width: max(1, geometry.size.width - 32), height: height)
-      let guide = WritingGuide(size: canvasSize, wordWidth: lesson.width)
+      let guide = WritingGuide(size: canvasSize, wordWidth: lesson.width, lines: model.lines)
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
           Text("Cursive practice").font(.largeTitle.bold())
           Text(PracticeLesson.revision).font(.caption).foregroundColor(.secondary)
           Text("\(lesson.primer.name) · revision \(lesson.primer.revision)")
             .font(.caption).foregroundColor(.secondary)
-          Picker("Word set", selection: $setID) {
-            Text("Set 1").tag(1)
-            Text("Set 2").tag(2)
-            Text("Set 3").tag(3)
+          guideControls
+          Picker("Lesson set", selection: $setID) {
+            ForEach(Array(Set(lessons.map { $0.set })).sorted(), id: \.self) { value in
+              Text("Set \(value)").tag(value)
+            }
           }
           .pickerStyle(.segmented)
           .disabled(evaluation.isAnalyzing)
           .onChange(of: setID) { value in
-            lessonID = PracticeLesson.all.first { $0.set == value }!.id
+            lessonID = lessons.first { $0.set == value }?.id ?? lessons[0].id
           }
           Picker("Practice word", selection: $lessonID) {
-            ForEach(PracticeLesson.all.filter { $0.set == setID }) { item in
+            ForEach(lessons.filter { $0.set == setID }) { item in
               Text(item.word).tag(item.id)
             }
           }
@@ -50,14 +62,15 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 6) {
               Text("Write “\(lesson.word)”").font(.title2.bold())
               Text(
-                "Start at the left of the blue example. Small letters fill the highlighted band."
+                "Follow the blue example and its guide lines. Lift your pen where the example has separate strokes."
               )
               .font(.subheadline)
             }
           }
-          Text("Changing the word clears your canvas.").font(.caption).foregroundColor(.secondary)
+          Text("Changing the guide, profile, or lesson clears your canvas.").font(.caption)
+            .foregroundColor(.secondary)
           Text(lesson.focus).font(.subheadline)
-          Text("Illustrative model: use it to practice, then try your own writing.")
+          Text(model.reviewStatus)
             .font(.caption).foregroundColor(.secondary)
 
           ViewThatFits(in: .horizontal) {
@@ -73,10 +86,10 @@ struct ContentView: View {
           }
 
           ZStack {
-            LinedPaperBackground(guide: guide, showsDescender: lesson.word.contains("p"))
+            LinedPaperBackground(guide: guide, showsDescender: lesson.showsDescender)
             if showsTrace {
               ReferenceWord(
-                points: lesson.referencePoints(in: guide), progress: ghostProgress,
+                strokes: lesson.referenceStrokes(in: guide), progress: ghostProgress,
                 color: .blue.opacity(0.23), lineWidth: 5)
             }
             WritingCanvas(
@@ -131,6 +144,55 @@ struct ContentView: View {
         .padding(16)
       }
     }
+    .fileImporter(isPresented: $importsGuide, allowedContentTypes: [.json]) { result in
+      do {
+        let url = try result.get()
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        // Bound the read itself; metadata sizes on external providers are not authoritative.
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let data = try handle.read(upToCount: HandwritingGuide.maximumBytes + 1) ?? Data()
+        let imported = try HandwritingGuide.decode(data)
+        guard !models.contains(where: { $0.id == imported.id }) else {
+          throw HandwritingGuide.Invalid(
+            reason:
+              "A guide with this ID is already loaded. Use a distinct ID to compare a new draft.")
+        }
+        models.append(imported)
+        modelID = imported.id
+        importError = nil
+      } catch { importError = error.localizedDescription }
+    }
+  }
+
+  private var guideControls: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Picker("Handwriting guide", selection: $modelID) {
+        ForEach(models) { item in Text(item.name).tag(item.id) }
+      }
+      .onChange(of: modelID) { _ in
+        profileID = model.profiles[0].id
+        setID = model.lessons[0].set
+        lessonID = model.lessons[0].id
+        resetLesson()
+      }
+      Picker("Practice profile", selection: $profileID) {
+        ForEach(model.profiles) { item in Text(item.name).tag(item.id) }
+      }
+      .onChange(of: profileID) { _ in resetLesson() }
+      Text(profile.instruction).font(.subheadline)
+      Button("Import guide JSON…") { importsGuide = true }
+      Text("Imported guides stay available for this session. Geometry scores remain experimental.")
+        .font(.caption).foregroundColor(.secondary)
+      if let importError { Text(importError).font(.caption).foregroundColor(.red) }
+      DisclosureGroup("About this guide") {
+        Text("\(model.style) · \(model.language) / \(model.script)")
+        Text(model.provenance.source)
+        Text(model.provenance.instructionalReference)
+        Text(model.provenance.reviewNotes)
+      }.font(.caption)
+    }.disabled(evaluation.isAnalyzing)
   }
 
   private var traceToggle: some View {
@@ -197,7 +259,8 @@ struct ContentView: View {
     VStack(alignment: .leading, spacing: 5) {
       HStack {
         LessonThumbnail(
-          lesson: PracticeLesson(word: letter.letter, focus: "Letter model"),
+          lesson: PracticeLesson(
+            word: letter.letter, focus: "Letter model", model: model, profile: profile),
           thumbnailWidth: 100)
         VStack(alignment: .leading) {
           Text("Letter \(letter.id + 1): \(letter.letter)").font(.headline)
@@ -207,6 +270,7 @@ struct ContentView: View {
       if let shape = letter.shape {
         Text("Model shape: \(Int(shape.rounded()))/100").font(.subheadline)
       }
+      Text(model.glyph(letter.letter)?.instruction ?? "").font(.caption)
       Text(letter.note).font(.caption)
       if let join = letter.incomingJoin {
         Text(

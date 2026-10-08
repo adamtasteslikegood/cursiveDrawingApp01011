@@ -1,0 +1,294 @@
+{
+  "baselineCommit": "3f04013",
+  "description": "Synthetic characterization of prototype 1.2, including known false positives; not target educational scores.",
+  "records": [
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "loop"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 99.33486647604411,
+      "shape": 98.8914441267402,
+      "word": "loop"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 75.95090175278854,
+      "shape": 59.9181695879809,
+      "word": "loop"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 73.84000350030739,
+      "shape": 56.400005833845654,
+      "word": "loop"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "pool"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 98.1231538162213,
+      "shape": 96.87192302703552,
+      "word": "pool"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 75.9622955282976,
+      "shape": 59.937159213829325,
+      "word": "pool"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 73.39265703728648,
+      "shape": 55.65442839547748,
+      "word": "pool"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "hello"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 96.20869701643753,
+      "shape": 93.68116169406255,
+      "word": "hello"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 80.44613171205825,
+      "shape": 67.41021952009709,
+      "word": "hello"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 79.46553786841261,
+      "shape": 65.77589644735437,
+      "word": "hello"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "hope"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 98.69324527207178,
+      "shape": 97.82207545345295,
+      "word": "hope"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 75.59347040832174,
+      "shape": 59.32245068053622,
+      "word": "hope"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 73.44929191260337,
+      "shape": 55.74881985433895,
+      "word": "hope"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "help"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 99.2296141821875,
+      "shape": 98.71602363697917,
+      "word": "help"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 78.40954786751149,
+      "shape": 64.01591311251916,
+      "word": "help"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 76.47262787849516,
+      "shape": 60.787713130825274,
+      "word": "help"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "peel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 98.26564841258285,
+      "shape": 97.10941402097141,
+      "word": "peel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 76.56038361705248,
+      "shape": 60.93397269508747,
+      "word": "peel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 74.61229177322664,
+      "shape": 57.68715295537773,
+      "word": "peel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "heel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 97.29695136734017,
+      "shape": 95.49491894556694,
+      "word": "heel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 80.57732063528981,
+      "shape": 67.62886772548302,
+      "word": "heel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 79.71954285252303,
+      "shape": 66.1992380875384,
+      "word": "heel"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "hole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 97.94163937268769,
+      "shape": 96.56939895447948,
+      "word": "hole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 80.32796301314181,
+      "shape": 67.21327168856968,
+      "word": "hole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 79.01115701248821,
+      "shape": 65.01859502081368,
+      "word": "hole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "exact-model",
+      "score": 100,
+      "shape": 100,
+      "word": "pole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "synthetic-2-percent-jitter",
+      "score": 98.65813261540501,
+      "shape": 97.76355435900837,
+      "word": "pole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-zigzag",
+      "score": 76.29773095333366,
+      "shape": 60.4962182555561,
+      "word": "pole"
+    },
+    {
+      "height": 100,
+      "placement": 100,
+      "probe": "unrelated-crosshatch",
+      "score": 73.98556045573743,
+      "shape": 56.64260075956238,
+      "word": "pole"
+    }
+  ]
+}

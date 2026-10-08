@@ -22,3 +22,5 @@ The approximately 1,500-line conversation exports contain the original design di
 - [Primer comparison and decisions](primer-decisions.md), [source-derived primer visual](primer-reference.svg), and [1.2 letter analysis](letter-analysis-prototype.md): current prototype evidence, the Zaner-Bloser selection, and remaining alignment work.
 
 - [Prototype 1.2 iPad evaluation](ipad-prototype-1.2-evaluation.md): working lesson/feedback display, reported scoring defects, and required interchangeable guide direction.
+
+- [Guide format](guide-format.md), [model source assessment](model-source-assessment.md), [scoring reproduction](scoring-evidence-1.3.md) and [sprint 119](sprint-119.md): implemented 1.3 guide engine, retained baseline, source decisions and outstanding acceptance.

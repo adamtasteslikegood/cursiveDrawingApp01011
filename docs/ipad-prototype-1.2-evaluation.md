@@ -24,3 +24,9 @@ Lesson presentation, animation, and feedback display work in the reported trial.
 Create or locate a technical style-guide model, starting with the selected Zaner-Bloser reference. The app must consume interchangeable guides rather than hardcoding one style. Guides should support different writing styles, skill levels, languages, and glyph sets. Future capabilities include learning a user's style to personalize teaching and capturing penmanship for custom fonts. These capabilities are requirements to design for, not existing implementation.
 
 Record the scoring findings in regression work and compare exact reference paths, guided tracing, unrelated words, dense scribbles, repeated attempts, and input reset behavior. Establish expected outcomes from reviewed samples before choosing numeric thresholds. Build guide-specific instruction and evaluation from a consistent, versioned source. See [design](../specs/design.md) and [plan](../specs/plan.md).
+
+## Sprint 119 acceptance follow-up — 2026-10-07
+
+PR #5 was merged with this report preserved. CURS-17 records the available 1.2 evidence; it does not certify every device-checklist item. Exact device artifact, current OS/Playgrounds, partial erasure, join accuracy, local distortion and detailed reset/repeated-attempt sequences remain unreported. The prior 1.1 replay/toggle success is not automatically a new 1.2 result.
+
+Synthetic scoring reproduction is now documented in [the 1.3 investigation](scoring-evidence-1.3.md). It corroborates false positives under controlled inputs without explaining the device's apparent tracing ceiling. A fresh [1.3 device trial](device-validation.md#guide-foundation-13--new-device-evidence-required) must identify the new guide/revision/profile.
