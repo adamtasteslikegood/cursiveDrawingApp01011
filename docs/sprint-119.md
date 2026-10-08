@@ -1,5 +1,7 @@
 # Sprint 119 — Model foundation
 
+The current [CURS-1 charter](../specs/curs-1-charter.md) defines the owner's three-item review handoff, distinct from closing this Scrum sprint. [Cursivly Confluence](https://tasteslikegood.atlassian.net/wiki/spaces/CURS) holds the published project charter; [PM harness instructions](curs-1-harness.md) describe its reproducible verification.
+
 Date: 2026-10-07. Jira: [Cursivly Scrum board](https://tasteslikegood.atlassian.net/jira/software/c/projects/CURS/boards/204/backlog). Owner/acceptance reviewer: Adam Schoen. The populated future sprint is **Cursivly 01 - Model foundation** (119); the earlier empty template sprint is not the delivery scope. Dates, capacity and estimates have not been invented.
 
 ## Delivery and acceptance

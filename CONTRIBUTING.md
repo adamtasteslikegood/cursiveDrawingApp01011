@@ -31,6 +31,8 @@ Maintainers should configure required checks after their first successful runs. 
 
 The project is MIT licensed. Submit only code and documents you have permission to contribute.
 
+For the CURS-1 delivery loop, use the [charter](specs/curs-1-charter.md), tracked templates in `specs/harness/` and [harness instructions](docs/curs-1-harness.md). Prepare a fresh run with `scripts/prepare-curs-1-harness.py`; generated state and Jira/Confluence snapshots belong in ignored `.agent-harness/`. Freeze verifier checks before initialization, resume from the controller state, and require actual Jira In Review plus an open PR or evidenced Done. This delivery endpoint does not accept unresolved device or curriculum requirements.
+
 Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact lesson models and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
 
 Keep primer identity/revision, guides, rendering, and comparison models consistent. The current five-letter primer is provisional; consult `docs/primer-decisions.md` and the drafts in `specs/` when aligning models with the user-selected Zaner-Bloser reference or adding lesson kinds.

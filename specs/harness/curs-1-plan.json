@@ -1,0 +1,69 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Publish the CURS-1 model foundation charter in the CURS Confluence space and deliver CURS-6, CURS-7 and CURS-8 to Done with explicit human acceptance or actual In Review with the current open non-draft PR. Preserve out-of-scope work and unvalidated device, scoring and curriculum claims.",
+  "domain": "project-management",
+  "scope": {
+    "cloud_id": "029decc8-e09a-4d55-92f8-20d9ca64ca13",
+    "project": "CURS",
+    "epic": "CURS-1",
+    "sprint_id": 119,
+    "sprint_name": "Cursivly 01 - Model foundation",
+    "board_id": 204,
+    "issue_keys": ["CURS-6", "CURS-7", "CURS-8"],
+    "preserved_epic_children": {"CURS-9": "To Do", "CURS-22": "To Do", "CURS-23": "To Do"},
+    "other_sprint_work": ["CURS-17"]
+  },
+  "constraints": [
+    "One task at a time; serialize writes and preserve previous .agent-harness files.",
+    "No app, guide geometry, scoring, archive or original-reference changes.",
+    "Do not start or close the time-box, merge the review PR, or change CURS-9, CURS-22, CURS-23 or CURS-17.",
+    "Done needs explicit human acceptance; review packets and green CI do not establish device or educational acceptance.",
+    "Freeze checks before initialization; never edit a gate, template or resolved plan after initialization."
+  ],
+  "tasks": [
+    {
+      "id": "T1", "title": "Publish the project charter", "skill": "confluence-expert", "skill_path": "${PM_SKILLS_DIR}/confluence-expert",
+      "objective": "Finish specs/curs-1-charter.md with goal, scope, review, acceptance, risks and budgets; use or create the CURS Confluence project space; publish the same charter; correct the epic to In Progress with a named human owner.",
+      "owner": "Adam Schoen", "reviewer": "Adam Schoen", "executor": "agent", "status": "todo", "attempts": 0, "evidence": "", "max_attempts": 3,
+      "acceptance": {"cmd": "python3 scripts/check_curs_1_delivery.py --task T1"},
+      "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T1", "expect_exit": 0, "kind": "published-charter"}, {"cmd": "python3 scripts/check_repository.py", "expect_exit": 0, "kind": "repository-integrity"}, {"cmd": "./scripts/lint.sh", "expect_exit": 0, "kind": "lint"}],
+      "done_when": "The frozen executable check accepts the local charter and fresh Jira, sprint and Confluence readbacks."
+    },
+    {
+      "id": "T2", "title": "Prepare CURS-6 source decision review", "skill": "jira-expert", "skill_path": "${PM_SKILLS_DIR}/jira-expert",
+      "objective": "Create docs/reviews/CURS-6.md with a substantive source decision assessment, acceptance evidence, findings, decision requested and remaining human acceptance; preserve unvalidated model and curriculum claims.",
+      "owner": "Adam Schoen", "reviewer": "Adam Schoen", "executor": "agent", "status": "todo", "attempts": 0, "evidence": "", "max_attempts": 3,
+      "acceptance": {"cmd": "python3 scripts/check_curs_1_delivery.py --task T2"},
+      "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T2", "expect_exit": 0, "kind": "review-packet"}],
+      "done_when": "The frozen executable check finds a substantive, attributable review packet for CURS-6."
+    },
+    {
+      "id": "T3", "title": "Prepare CURS-7 schema acceptance review", "skill": "jira-expert", "skill_path": "${PM_SKILLS_DIR}/jira-expert",
+      "objective": "Create docs/reviews/CURS-7.md assessing the implemented guide contract and its behavioral evidence; request human acceptance separately from compilation, synthetic checks and device acceptance.",
+      "owner": "Adam Schoen", "reviewer": "Adam Schoen", "executor": "agent", "status": "todo", "attempts": 0, "evidence": "", "max_attempts": 3,
+      "acceptance": {"cmd": "python3 scripts/check_curs_1_delivery.py --task T3"},
+      "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T3", "expect_exit": 0, "kind": "review-packet"}, {"cmd": "python3 scripts/test-portable.py", "expect_exit": 0, "kind": "guide-behavior"}],
+      "done_when": "The frozen executable check finds a substantive, attributable review packet for CURS-7."
+    },
+    {
+      "id": "T4", "title": "Prepare CURS-8 five-letter alignment review", "skill": "jira-expert", "skill_path": "${PM_SKILLS_DIR}/jira-expert",
+      "objective": "Create docs/reviews/CURS-8.md comparing the five-letter prototype with public official Zaner-Bloser references, documenting alignment gaps and requesting human review without relabeling the runtime curves.",
+      "owner": "Adam Schoen", "reviewer": "Adam Schoen", "executor": "agent", "status": "todo", "attempts": 0, "evidence": "", "max_attempts": 3,
+      "acceptance": {"cmd": "python3 scripts/check_curs_1_delivery.py --task T4"},
+      "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T4", "expect_exit": 0, "kind": "review-packet"}],
+      "done_when": "The frozen executable check finds an evidence-based alignment-gap packet using official references."
+    },
+    {
+      "id": "T5", "title": "Verify the Jira and PR terminal gate", "skill": "pm-skills", "skill_path": "${PM_SKILLS_DIR}/pm-skills",
+      "objective": "Re-read complete epic children and sprint/Confluence state; verify each scoped issue is actually In Review linked to the current open PR or Done with explicit acceptance; check current-head CI and CodeQL; preserve unrelated epic/sprint work; close only after controller verification.",
+      "owner": "Adam Schoen", "reviewer": "Adam Schoen", "executor": "agent", "status": "todo", "attempts": 0, "evidence": "", "max_attempts": 3,
+      "acceptance": {"cmd": "python3 scripts/check_curs_1_delivery.py --task T5"},
+      "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T5", "expect_exit": 0, "kind": "live-delivery"}],
+      "done_when": "All fresh evidence passes the frozen executable gate, including actual Jira statuses, open PR identity and current CI/CodeQL; machine verification does not imply human educational acceptance."
+    }
+  ],
+  "budgets": {"max_attempts_per_task": 3, "max_loop_iterations": 12},
+  "iteration": 0,
+  "loop": {"order": "sequential", "max_loop_iterations": 12, "escalate_on": ["attempts_exhausted", "global_iteration_cap", "missing_verified_evidence"]},
+  "close": {"requires": "All five tasks verified by controller-run checks; human waivers must be explicit.", "handoff": "Keep controller evidence and produce a separate PM governance projection; do not rewrite controller states."}
+}

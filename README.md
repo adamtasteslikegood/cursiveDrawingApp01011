@@ -14,6 +14,8 @@ The user confirmed the refreshed **1.0 baseline** runs and evaluates handwriting
 
 Sprint scope and acceptance gaps are tracked in [the sprint 119 record](docs/sprint-119.md).
 
+The [CURS-1 charter](specs/curs-1-charter.md) defines the three-item review handoff and its acceptance gates. The [Cursivly Confluence space](https://tasteslikegood.atlassian.net/wiki/spaces/CURS) is the project home. See [the PM harness instructions](docs/curs-1-harness.md) for durable plans, verification and resume commands.
+
 Start with [QUICKSTART.md](QUICKSTART.md). Contribution and verification instructions are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Repository layout

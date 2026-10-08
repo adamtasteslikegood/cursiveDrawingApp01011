@@ -1,0 +1,20 @@
+{
+  "schema": "agent-harness/manifest.v1",
+  "domain": "project-management",
+  "name": "CURS-1 bounded delivery",
+  "description": "Publish the model foundation charter and deliver the three scoped reviews to human acceptance or real Jira review with an open PR.",
+  "plugin_versions": {"agent-harness": "1.0.0", "pm-skills": "2.11.1"},
+  "loop_defaults": {"max_attempts_per_task": 3, "max_loop_iterations": 12},
+  "skills": [
+    {
+      "name": "pm-skills",
+      "path": "${PM_SKILLS_DIR}/pm-skills",
+      "description": "Named human ownership, charter, source decision, schema acceptance, five-letter alignment review, Jira review and PR evidence.",
+      "tools": [{"script": "scripts/check_curs_1_delivery.py", "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T5", "expect_exit": 0, "kind": "live-delivery"}]}]
+    }
+  ],
+  "scope": {"project": "CURS", "epic": "CURS-1", "sprint_id": 119, "board_id": 204, "issue_keys": ["CURS-6", "CURS-7", "CURS-8"]},
+  "human_owner": "Adam Schoen",
+  "human_reviewer": "Adam Schoen",
+  "notes": "The explicit five-task plan preserves dependencies that deterministic keyword compilation cannot infer. Resolve installed plugin paths with prepare-curs-1-harness.py; do not execute unresolved templates."
+}
