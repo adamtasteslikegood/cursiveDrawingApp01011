@@ -11,7 +11,7 @@
 
 To exercise the new engine, select **Stroke Lab**, which contains a two-stroke x and lifted connections. Its models are technical demonstrations, not reviewed handwriting instruction. Compare Explore and Precise geometry profiles. Import `CursivePrototype.swiftpm/Guides/e-and-ee.example.json` to try the complete one-letter/two-letter schema example. Imports last for the session; invalid files preserve the current lesson. See [guide authoring](docs/guide-format.md).
 
-The practice score uses shape, position and height without trace coverage. Hide the trace to practice independently; visibility does not change grading. **Replay example clears the drawing and previous feedback**, enables the trace, then replays it. [New device acceptance remains open](docs/scoring-evidence-1.5.md). Record component scores and actual letter quality separately in the [device checklist](docs/device-validation.md). A high match cannot establish spelling, stroke order or educational mastery.
+The practice score uses shape, position and height without trace coverage. Hide the trace to practice independently; visibility does not change grading. **Replay example clears the drawing and previous feedback**, enables the trace, then replays it. The [1.5 owner trial](docs/ipad-prototype-1.5-evaluation.md) confirms improved grading and Replay clearing. Record component scores and actual letter quality separately in the [device checklist](docs/device-validation.md). A high match cannot establish spelling, stroke order or educational mastery.
 
 Use only the root-level package; packages under `backups/legacy/` are historical copies.
 

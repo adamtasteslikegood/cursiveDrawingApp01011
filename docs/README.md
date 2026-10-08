@@ -31,3 +31,4 @@ The approximately 1,500-line conversation exports contain the original design di
 
 - [1.4-final iPad evaluation](ipad-prototype-1.4-evaluation.md): improved false positives/centering, overly low totals, and Replay request.
 - [1.5 scoring evidence](scoring-evidence-1.5.md): independent-practice formula, compatibility and validation.
+- [1.5 iPad evaluation](ipad-prototype-1.5-evaluation.md): app runs, grading improves over 1.4, Replay clears ink, and the owner authorizes merging the open PRs.

@@ -67,6 +67,8 @@ The [owner's 1.3 report](ipad-prototype-1.3-evaluation.md) confirms high tracing
 
 ## Independent practice and Replay 1.5
 
+The [1.5 owner report](ipad-prototype-1.5-evaluation.md) confirms execution, improved grading over 1.4 and Replay clearing, with approval to merge. The detailed cases below remain a checklist; unreported cases are not marked passed.
+
 The [1.4-final report](ipad-prototype-1.4-evaluation.md) confirms comfortable centering and improved false positives in that trial; totals below 20% remain a reported defect. Validate the new version separately:
 
 - Confirm **Lesson prototype 1.5 · 2026-10-08**, guide revision **3**, and record device/OS/Playgrounds, guide/profile, target and orientation.

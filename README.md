@@ -6,7 +6,7 @@ Version **1.3** adds interchangeable JSON handwriting guides. **Prototype Cursiv
 
 Version **1.5** grades independent practice without multiplying by trace coverage. Shape, position and height feedback remain, with an excessive-ink check to discourage scribbles. **Replay example** clears ink and previous feedback before replaying. Bundled guides use revision **3**, `geometry-v3`; the original glyph curves are preserved. See [the scoring evidence and limitations](docs/scoring-evidence-1.5.md).
 
-The [1.4-final iPad trial](docs/ipad-prototype-1.4-evaluation.md) confirms improved false-positive behavior and comfortable writing-area positioning, but reports totals below 20% despite useful individual feedback. It motivates 1.5; the new scoring and Replay behavior await another device trial.
+The [1.5 iPad trial](docs/ipad-prototype-1.5-evaluation.md) confirms that the app runs, grading is better than 1.4, and Replay clears the writing area. The owner approved merging this version. The preceding [1.4-final trial](docs/ipad-prototype-1.4-evaluation.md) confirmed improved false positives and comfortable centering, but reported overly low totals. Detailed calibration and unreported device-checklist cases remain open.
 
 The primary **Practice score** compares the selected guide's letter forms without requiring ink to cover the overlay. Showing or hiding the guide never changes the scoring policy. OCR remains a separate recognition check. These are provisional geometric estimates, not validated educational grades, spelling checks or stroke-order judgments. The five-letter model remains provisional; [source research and alignment findings](docs/model-source-assessment.md) describe the selected Zaner-Bloser reference and remaining work.
 

@@ -1,5 +1,7 @@
 # Prototype 1.5 — independent practice
 
+**Owner acceptance, 2026-10-08:** the [1.5 iPad evaluation](ipad-prototype-1.5-evaluation.md) confirms that the app runs, grades better than 1.4, and Replay clears the testing area. The owner authorizes merging the open PRs. This is qualitative device evidence; detailed score calibration and unreported checklist cases remain open.
+
 The [1.4-final device evaluation](ipad-prototype-1.4-evaluation.md) reports improved false positives and centering, but totals consistently below 20% despite useful individual feedback. [CURS-25](https://tasteslikegood.atlassian.net/browse/CURS-25) addresses that mismatch; [CURS-26](https://tasteslikegood.atlassian.net/browse/CURS-26) makes Replay clear ink and previous feedback.
 
 The old scorer did not inspect overlay visibility. Its near-exact ink support and model coverage multipliers nevertheless favored tracing heavily. Smooth synthetic variations reproduce this failure: changing loops and vertical position by up to 10% of the writing-band height produces word totals of 13.5–21.4% with v2. These are generated examples, not recordings of the owner's handwriting.
