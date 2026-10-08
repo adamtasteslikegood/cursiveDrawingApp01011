@@ -291,11 +291,96 @@ struct LessonScorer {
       return self.point(at: fraction)
     }
 
-    func support(_ point: CGPoint, within tolerance: CGFloat) -> Double {
-      let nearest = nearestPoint(to: point)
-      let distance = hypot(point.x - nearest.x, point.y - nearest.y)
-      // Full support inside half the tolerance, falling smoothly to zero at its edge.
-      return Double(max(0, min(1, 2 * (1 - distance / tolerance))))
+  }
+
+  /// A balanced bounding-box tree preserves every segment while pruning distant edges.
+  /// It never downsamples a path or inserts a chord across visible ink or an erased gap.
+  private final class EdgeIndex {
+    struct Entry {
+      let id: Int
+      let edge: InkEdge
+    }
+
+    final class Node {
+      let minX: CGFloat
+      let minY: CGFloat
+      let maxX: CGFloat
+      let maxY: CGFloat
+      let entries: [Entry]
+      let left: Node?
+      let right: Node?
+
+      init(_ entries: [Entry]) {
+        minX = entries.map { min($0.edge.start.x, $0.edge.point(at: 1).x) }.min()!
+        minY = entries.map { min($0.edge.start.y, $0.edge.point(at: 1).y) }.min()!
+        maxX = entries.map { max($0.edge.start.x, $0.edge.point(at: 1).x) }.max()!
+        maxY = entries.map { max($0.edge.start.y, $0.edge.point(at: 1).y) }.max()!
+        if entries.count <= 8 {
+          self.entries = entries
+          left = nil
+          right = nil
+        } else {
+          self.entries = []
+          let horizontal = maxX - minX >= maxY - minY
+          let ordered = entries.sorted { a, b in
+            let first = horizontal ? a.edge.start.x + a.edge.dx / 2 : a.edge.start.y + a.edge.dy / 2
+            let second =
+              horizontal ? b.edge.start.x + b.edge.dx / 2 : b.edge.start.y + b.edge.dy / 2
+            return first == second ? a.id < b.id : first < second
+          }
+          let middle = ordered.count / 2
+          left = Node(Array(ordered[..<middle]))
+          right = Node(Array(ordered[middle...]))
+        }
+      }
+
+      func distance(to point: CGPoint) -> CGFloat {
+        let x = max(0, max(minX - point.x, point.x - maxX))
+        let y = max(0, max(minY - point.y, point.y - maxY))
+        return hypot(x, y)
+      }
+    }
+
+    let root: Node?
+
+    init(_ edges: [InkEdge]) {
+      let entries = edges.enumerated().map { Entry(id: $0.offset, edge: $0.element) }
+      root = entries.isEmpty ? nil : Node(entries)
+    }
+
+    func nearest(to point: CGPoint, limit: CGFloat = .infinity)
+      -> (point: CGPoint?, distance: CGFloat, comparisons: Int)
+    {
+      guard let root else { return (nil, limit, 0) }
+      var pending = [root]
+      var closest: CGPoint?
+      var distance = limit
+      var firstID = Int.max
+      var comparisons = 0
+      while let node = pending.popLast() {
+        guard node.distance(to: point) <= distance else { continue }
+        for entry in node.entries {
+          comparisons += 1
+          let nearby = entry.edge.nearestPoint(to: point)
+          let next = hypot(nearby.x - point.x, nearby.y - point.y)
+          if next < distance || (next == distance && entry.id < firstID) {
+            closest = nearby
+            distance = next
+            firstID = entry.id
+          }
+        }
+        if let left = node.left, let right = node.right {
+          // Visit the nearer bounds first so its result can prune the other subtree.
+          if left.distance(to: point) <= right.distance(to: point) {
+            pending.append(right)
+            pending.append(left)
+          } else {
+            pending.append(left)
+            pending.append(right)
+          }
+        }
+      }
+      return (closest, distance, comparisons)
     }
   }
 
@@ -306,15 +391,17 @@ struct LessonScorer {
   }
 
   /// Refine translation without changing scale, rotation or stroke identity. Accept a
-  /// candidate only when neither ink support nor model coverage gets worse: extra ink
-  /// must not pull an already complete trace away from the model.
+  /// candidate only when neither ink support nor model coverage gets worse and at least
+  /// one improves: extra ink must not pull an already complete trace away from the model.
   private static func refineFit(
     _ initial: [[CGPoint]], reference: [[CGPoint]], tolerance: CGFloat
   ) -> (strokes: [[CGPoint]], ink: Double, model: Double) {
     let expected = edges(reference)
+    let expectedIndex = EdgeIndex(expected)
     var candidate = initial
     var best = initial
-    var support = pathSupport(ink: initial, reference: reference, tolerance: tolerance)
+    var support = pathSupport(
+      ink: initial, expected: expected, expectedIndex: expectedIndex, tolerance: tolerance)
     guard !expected.isEmpty, !edges(initial).isEmpty else {
       return (best, support.ink, support.model)
     }
@@ -323,16 +410,7 @@ struct LessonScorer {
       var x: CGFloat = 0
       var y: CGFloat = 0
       for point in points {
-        var closest = point
-        var distance = CGFloat.greatestFiniteMagnitude
-        for edge in expected {
-          let nearby = edge.nearestPoint(to: point)
-          let next = hypot(nearby.x - point.x, nearby.y - point.y)
-          if next < distance {
-            closest = nearby
-            distance = next
-          }
-        }
+        let closest = expectedIndex.nearest(to: point).point ?? point
         x += closest.x - point.x
         y += closest.y - point.y
       }
@@ -340,8 +418,11 @@ struct LessonScorer {
       y /= CGFloat(points.count)
       if hypot(x, y) < tolerance * 0.0001 { break }
       candidate = candidate.map { $0.map { CGPoint(x: $0.x + x, y: $0.y + y) } }
-      let next = pathSupport(ink: candidate, reference: reference, tolerance: tolerance)
-      if next.ink >= support.ink && next.model >= support.model {
+      let next = pathSupport(
+        ink: candidate, expected: expected, expectedIndex: expectedIndex, tolerance: tolerance)
+      if next.ink >= support.ink && next.model >= support.model
+        && (next.ink > support.ink || next.model > support.model)
+      {
         best = candidate
         support = next
       }
@@ -352,13 +433,13 @@ struct LessonScorer {
   /// Arc-length support against actual polyline segments, never edges across pen lifts.
   /// Sampling is bounded and counts travel uniformly; it does not grade direction/order.
   private static func pathSupport(
-    ink: [[CGPoint]], reference: [[CGPoint]], tolerance: CGFloat
+    ink: [[CGPoint]], expected: [InkEdge], expectedIndex: EdgeIndex, tolerance: CGFloat
   ) -> (ink: Double, model: Double) {
     let actual = edges(ink)
-    let expected = edges(reference)
     guard !actual.isEmpty, !expected.isEmpty else { return (0, 0) }
+    let actualIndex = EdgeIndex(actual)
 
-    func fraction(_ source: [InkEdge], near target: [InkEdge]) -> Double {
+    func fraction(_ source: [InkEdge], near target: EdgeIndex) -> Double {
       let total = source.reduce(CGFloat(0)) { $0 + $1.length }
       let count = 512
       var index = 0
@@ -372,16 +453,13 @@ struct LessonScorer {
         }
         let edge = source[index]
         let point = edge.point(at: (distance - consumed) / edge.length)
-        var best = 0.0
-        for edge in target {
-          best = max(best, edge.support(point, within: tolerance))
-          if best == 1 { break }
-        }
-        matched += best
+        let nearest = target.nearest(to: point, limit: tolerance)
+        // Full support inside half the tolerance, falling smoothly to zero at its edge.
+        matched += Double(max(0, min(1, 2 * (1 - nearest.distance / tolerance))))
       }
       return Double(matched) / Double(count)
     }
-    return (fraction(actual, near: expected), fraction(expected, near: actual))
+    return (fraction(actual, near: expectedIndex), fraction(expected, near: actualIndex))
   }
 
   private static func letterFeedback(

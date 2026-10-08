@@ -137,7 +137,7 @@ struct ContentView: View {
 
           feedback
           Text(
-            "Practice feedback is experimental. It compares visible shape, height, and vertical position—not writing speed or educational mastery. OCR may misread cursive."
+            "Practice feedback is experimental. It compares shape, height, position, ink near the example, and example coverage. Writing speed and educational mastery are unmeasured. OCR may misread cursive."
           )
           .font(.caption).foregroundColor(.secondary)
         }

@@ -811,7 +811,62 @@ final class GuideFoundationTests: XCTestCase {
   }
 }
 
+extension LessonScorer {
+  // Test harnesses append this file to the exact app source; app visibility stays private.
+  fileprivate static func indexedQueriesForTesting(
+    paths: [[CGPoint]], queries: [CGPoint], limit: CGFloat = .infinity
+  ) -> [(point: CGPoint?, distance: CGFloat, comparisons: Int)] {
+    let index = EdgeIndex(edges(paths))
+    return queries.map { index.nearest(to: $0, limit: limit) }
+  }
+
+  fileprivate static func refinedInkForTesting(
+    _ ink: [[CGPoint]], reference: [[CGPoint]], tolerance: CGFloat
+  ) -> [[CGPoint]] {
+    refineFit(ink, reference: reference, tolerance: tolerance).strokes
+  }
+}
+
 final class InkSupportScoringTests: XCTestCase {
+  func testDenseEdgeIndexPrunesExactComparisons() throws {
+    let paths = (0..<5_000).map { row in
+      [CGPoint(x: 0, y: row), CGPoint(x: 100, y: row)]
+    }
+    let queries = (0..<100).map { CGPoint(x: 50, y: CGFloat($0 * 49) + 0.37) }
+    let results = LessonScorer.indexedQueriesForTesting(paths: paths, queries: queries)
+    for (query, result) in zip(queries, results) {
+      XCTAssertEqual(result.distance, 0.37, accuracy: 0.000001)
+      XCTAssertEqual(try XCTUnwrap(result.point).y, floor(query.y), accuracy: 0.000001)
+      XCTAssertLessThanOrEqual(result.comparisons, 16, "Index must prune distant raw ink edges")
+    }
+  }
+
+  func testEdgeIndexKeepsGapsAndProjectsDiagonalSegments() throws {
+    let gap = [
+      [CGPoint(x: 0, y: 0), CGPoint(x: 40, y: 0)],
+      [CGPoint(x: 60, y: 0), CGPoint(x: 100, y: 0)],
+    ]
+    let query = CGPoint(x: 50, y: 0)
+    let nearest = LessonScorer.indexedQueriesForTesting(paths: gap, queries: [query])[0]
+    XCTAssertEqual(nearest.point, CGPoint(x: 40, y: 0))
+    XCTAssertEqual(nearest.distance, 10)
+    let limited = LessonScorer.indexedQueriesForTesting(paths: gap, queries: [query], limit: 2)[0]
+    XCTAssertNil(limited.point)
+    let diagonal = LessonScorer.indexedQueriesForTesting(
+      paths: [[CGPoint(x: 0, y: 0), CGPoint(x: 10, y: 10)]],
+      queries: [CGPoint(x: 8, y: 2)])[0]
+    XCTAssertEqual(try XCTUnwrap(diagonal.point).x, 5, accuracy: 0.000001)
+    XCTAssertEqual(try XCTUnwrap(diagonal.point).y, 5, accuracy: 0.000001)
+    XCTAssertEqual(diagonal.distance, sqrt(18), accuracy: 0.000001)
+  }
+
+  func testEqualSupportDoesNotMoveTheFittedInk() {
+    let reference = [[CGPoint(x: 0, y: 0), CGPoint(x: 100, y: 0)]]
+    let ink = [[CGPoint(x: 0, y: 1), CGPoint(x: 100, y: 1)]]
+    let result = LessonScorer.refinedInkForTesting(ink, reference: reference, tolerance: 5)
+    XCTAssertEqual(result, ink, "An equal-support candidate must not drift from the existing fit")
+  }
+
   func testFaithfulAndWobblyTracesStayHighAcrossGuidesProfilesAndCanvasSizes() {
     for model in GuideLibrary.all {
       for profile in model.profiles {
