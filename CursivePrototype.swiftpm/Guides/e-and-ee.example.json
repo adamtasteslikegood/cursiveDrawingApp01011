@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "prototype-e-example",
   "name": "E and EE schema example",
-  "revision": "1",
+  "revision": "3",
   "style": "illustrative-cursive",
   "language": "en",
   "script": "Latn",
@@ -28,14 +28,15 @@
       "name": "Explore",
       "instruction": "Follow the example, then try writing without the trace.",
       "assessment": {
-        "algorithm": "geometry-v1",
+        "algorithm": "geometry-v3",
         "shapeTolerance": 0.015,
         "shapeFalloff": 0.24,
         "letterFalloff": 0.14,
         "positionTolerance": 0.1,
         "positionFalloff": 0.5,
         "sizeTolerance": 0.2,
-        "sizeFalloff": 0.9
+        "sizeFalloff": 0.9,
+        "lengthAllowance": 2.0
       }
     }
   ],

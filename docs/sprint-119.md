@@ -20,3 +20,7 @@ PR #6 is merged. The [separate 1.3 iPad report](ipad-prototype-1.3-evaluation.md
 Local agent-harness verification executes repository integrity, strict Swift lint/visual consistency and the portable regression suite as subprocesses. The PM delivery gate tracks the owner, acceptance and evidence. Its local plan/state live in ignored `.agent-harness/`; those tool records are not product artifacts. GitHub CI supplies the Apple build/simulator evidence and custom CodeQL checks on the PR head. Linux cannot perform Apple checks locally.
 
 Use the PR's actual check results and ZIP artifact as delivery evidence; a local harness pass is not iPad acceptance or a closed Jira sprint. The [device checklist](device-validation.md) includes guide import, switching, multiple paths and scoring probes. Issues remain open where human/device or curriculum acceptance is outstanding.
+
+## 1.5 acceptance and merge authorization — 2026-10-08
+
+The [owner's 1.5 evaluation](ipad-prototype-1.5-evaluation.md) confirms that the app runs on the same setup, grades better than 1.4, and Replay clears the writing area. The owner requests merging PRs #7/#8. CURS-25/CURS-26 track these delivered improvements; earlier 1.4 evidence confirms comfortable centering for CURS-24. This is qualitative acceptance of the prototype changes, not completion of the model-foundation sprint, educational calibration, or every device-checklist case. Sprint membership, dates and estimates are unchanged; CURS-20/CURS-21 retain their recorded detailed scoring follow-ups.

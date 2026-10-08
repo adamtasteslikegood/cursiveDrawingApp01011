@@ -20,7 +20,7 @@ harness = ROOT / '.build/portable-tests'
 tests = harness / 'Tests/AnalyzerTests'
 tests.mkdir(parents=True, exist_ok=True)
 (tests / 'AnalyzerTests.swift').write_text(
-    '\n'.join(parts) + (ROOT / 'CursivePrototype.swiftpm/EvaluationState.swift').read_text() + (ROOT / 'Tests/ScoringFixtures.swift').read_text() + (ROOT / 'Tests/AnalyzerTests.swift').read_text())
+    '\n'.join(parts) + (ROOT / 'CursivePrototype.swiftpm/EvaluationState.swift').read_text() + (ROOT / 'Tests/ScoringFixtures.swift').read_text() + (ROOT / 'Tests/InkSupportFixtures.swift').read_text() + (ROOT / 'Tests/AnalyzerTests.swift').read_text())
 shutil.rmtree(tests / 'Guides', ignore_errors=True)
 shutil.rmtree(tests / 'Fixtures', ignore_errors=True)
 shutil.copytree(ROOT / 'CursivePrototype.swiftpm/Guides', tests / 'Guides', dirs_exist_ok=True)

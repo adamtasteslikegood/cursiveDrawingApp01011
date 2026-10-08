@@ -2,7 +2,7 @@
 
 Record package commit, iPad model, iPadOS version, Swift Playgrounds version, and input device for each run.
 
-- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.3.1 · 2026-10-07` for this iteration).
+- Open the root-level package and launch without errors; confirm the current package revision is visible (`Lesson prototype 1.5 · 2026-10-08` for this iteration).
 - Confirm lined paper and canvas remain usable in portrait and landscape, including compact iPhone landscape; scroll the full lesson to reach controls and all results.
 - On first launch and after window reattachment, confirm the tool picker appears; write with touch and Apple Pencil where available and check pen and eraser.
 - Evaluate a nonempty drawing; confirm drawing, erasing, and lasso edits are blocked while analyzing, then resume after completion; confirm feedback matches the frozen ink.
@@ -56,3 +56,24 @@ The [owner's 1.3 report](ipad-prototype-1.3-evaluation.md) confirms high tracing
 - Repeat in portrait, landscape and Split View. Confirm the outer page scrolls while ink remains registered with its guides; test Pencil writing and finger scrolling outside the paper.
 - Evaluate while the paper is centered; confirm scores and all feedback remain reachable. Repeat the existing rotation-during-evaluation check.
 - Recheck a careful trace and dense scribble with the same guide/profile and record components separately. This visual patch does not fix the high scribble score.
+
+## Ink support and coverage 1.4
+
+- Confirm bundled guide revision 2 and record guide/profile, word, orientation and Playgrounds version. Test all three word sets and both Stroke Lab profiles.
+- Pair careful traces and independent target writing with dense scribbles, zigzags, unrelated words, incomplete letters and a complete trace followed by extra scribbles. Capture shape, position, height, ink near example and example covered as well as total. Synthetic expectations are recorded in [the evidence report](scoring-evidence-1.4.md); they are not device results.
+- Repeat after Clear, next lesson, guide/profile changes, erasure and rotation. Trace scores should remain high and unrelated-ink scores should drop substantially compared with the 1.3 trial. Record exceptions instead of treating a single good score as calibration.
+- Try retracing and separate strokes. V2 does not grade stroke direction/order or correct lifts; erased gaps must remain gaps. Inspect feedback wording and evaluation latency on both careful and dense inputs.
+- Repeat the centering checks above; 1.4 includes the positioning patch. Import the e/ee example, and optionally a retained v1 guide with a distinct ID to verify compatibility; record which algorithm the file specifies when comparing results.
+
+## Independent practice and Replay 1.5
+
+The [1.5 owner report](ipad-prototype-1.5-evaluation.md) confirms execution, improved grading over 1.4 and Replay clearing, with approval to merge. The detailed cases below remain a checklist; unreported cases are not marked passed.
+
+The [1.4-final report](ipad-prototype-1.4-evaluation.md) confirms comfortable centering and improved false positives in that trial; totals below 20% remain a reported defect. Validate the new version separately:
+
+- Confirm **Lesson prototype 1.5 · 2026-10-08**, guide revision **3**, and record device/OS/Playgrounds, guide/profile, target and orientation.
+- Pair a careful trace with independent writing of the same target with the trace hidden. Write slightly beside the model as well as over it. Record total, shape, position, height and any extra-ink message. Toggling the guide without changing ink must not change the result.
+- Pair those attempts with scribbles, unrelated words, partial letters, a missing Stroke Lab stroke and a good attempt followed by scribbles. Preserve low false-positive behavior; report exceptions. Compare Explore and Precise geometry without assuming either is educationally calibrated.
+- Draw and evaluate, hide the trace, then press Replay: ink and all prior feedback must clear, the toggle must turn on, and the animation must restart. Repeat with the trace already on, during replay, and with Reduce Motion. Replay remains unavailable during evaluation.
+- Confirm that clearing/replaying/next lesson still lets the paper center comfortably. Repeat in portrait, landscape and Split View where available.
+- Record evaluation latency on large drawings. Direction/order, OCR reliability and model alignment are separate unresolved capabilities.

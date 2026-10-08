@@ -22,7 +22,7 @@ Use a typed lesson kind and explicit text/occurrence tokens rather than passing 
 
 ## Selected instructional reference
 
-The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. Current `prototype-cursive` revision 1 remains accurate until that implementation work is complete.
+The user adopted Zaner-Bloser for now. Align letter shapes, line proportions, stroke instructions, contextual joins, and feedback with this reference before identifying runtime models as Zaner-Bloser. Handwriting Without Tears is only a marketplace reference. The `prototype-cursive` identity remains provisional; current revision 3 changes assessment settings, not the original glyph geometry or instructional alignment.
 
 ## Required interchangeable guide architecture
 
@@ -51,4 +51,10 @@ Persist primer ID/revision and provenance with each lesson and result. An adopte
 
 ## Validation
 
+Prototype 1.4 implements the owner's next priority using `geometry-v2`, selected by each guide profile. Separate weighted ink support and model coverage reduce scores when ink is away from the model or expected paths are absent. Exact semantics, compatibility and evidence are in [the 1.4 report](../docs/scoring-evidence-1.4.md). This is a geometry algorithm update; stroke-order/recognition and educational acceptance remain separate.
+
 Synthetic reference and negative tests check implementation behavior, not educational validity. Preserve original word-score regression coverage; test duplicate occurrences, local distortion, missing windows, sparse crossings, pen lifts, partial masks, serialization, and compact layout. The 1.2 iPad report confirms displayed lessons/animations and feedback rows but reports around 70% for unrelated ink and at most about 85% for tracing. Reproduce both findings with fixed input sequences; include repeated attempts and ink/result reset cases. Test exact model paths, traces, dense scribbles, unrelated words, and reviewed stylistic variants under a fixed guide revision. Do not invent a score cutoff from one report. Before higher-confidence instruction, evaluate against teacher-labeled samples, report ambiguity, and avoid converting uncertain geometric/recognition observations into confident corrective advice.
+
+## 1.4 device evidence and 1.5 follow-up
+
+The [1.4-final owner trial](../docs/ipad-prototype-1.4-evaluation.md) reports improved scribble rejection and comfortable centering, but overall scores below 20% despite useful component feedback. The owner requests independent practice without trace-coverage grading, prefers Stroke Lab's Precise geometry in this trial, and requests Replay clearing. [Version 1.5](../docs/scoring-evidence-1.5.md) implements a separate guide-selected `geometry-v3` policy and clears ink/results before replay. Original glyphs and the v1/v2 compatibility paths remain. The [1.5 owner evaluation](../docs/ipad-prototype-1.5-evaluation.md) confirms execution, improved grading and Replay clearing, with authorization to merge. Detailed calibration, unreported device cases, reviewed Zaner-Bloser models and stroke-order analysis remain separate work.

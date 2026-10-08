@@ -24,7 +24,7 @@ Schema 1 intentionally cannot represent contextual glyph variants, bridging conn
 
 ## Examples and loading
 
-- [Prototype Cursive](../CursivePrototype.swiftpm/Guides/prototype-cursive.json): the original five glyphs and nine words, revision 1.
+- [Prototype Cursive](../CursivePrototype.swiftpm/Guides/prototype-cursive.json): the original five glyphs and nine words, revision 3; assessment changed, glyph geometry did not.
 - [E and EE example](../CursivePrototype.swiftpm/Guides/e-and-ee.example.json): complete importable guide with one existing letter and a two-letter connection.
 - [Stroke Lab](../CursivePrototype.swiftpm/Guides/stroke-lab.json): independent project-owned technical model with `x` and `l`, multiple strokes, lifted joins, different lines and two assessment profiles. It is not a curriculum alternative.
 
@@ -36,12 +36,18 @@ Bundled files live inside `CursivePrototype.swiftpm/Guides/` and are copied as S
 
 `geometry-v1` keeps the baseline formula: 60% symmetric nearest-path shape, 20% vertical placement, 20% height. Profiles supply shape/position/size tolerances and falloffs plus the per-letter falloff. Whole-word fitting preserves aspect ratio; letter windows remain guided estimates, not recognition. Shape/position tolerances use writing-band height units; size uses absolute log height ratio. A narrower profile does not constitute a validated skill level.
 
+`geometry-v2` adds `matchTolerance` (required, finite, 0.005–0.2 writing-band heights; bundled value 0.05). It uses a uniform least-squares extent fit, conservative translation refinement and arc-length support against an exact spatial index of separate polyline edges. Refinement requires at least one support measure to improve and neither to worsen. Weighted ink support and model coverage multiply the shape/position/height composite. Support is full up to half `matchTolerance`, falls linearly to zero at the full tolerance, and stays zero beyond it. Results add optional `inkNearModel` and `modelCoverage` percentages. See [the 1.4 algorithm and evidence](scoring-evidence-1.4.md). V1 rejects `matchTolerance` rather than ignoring it. Original v1 guides remain importable; older apps reject v2 as unsupported. Schema 1's geometry and shaping capabilities are unchanged.
+
 The lesson holds the guide and profile by value for each analysis. Results serialize model ID/revision, profile ID, algorithm, style and language. These fields remain optional when reading historical reports. A guide editor must bump `revision` when geometry, instructions or assessment settings change; the importer cannot verify an author's revision history.
 
-No profile repairs the known false positives in `geometry-v1`. See [scoring evidence](scoring-evidence-1.3.md). Learned models and font capture need separate consent, provenance, revision and export designs before implementation.
+No profile repairs the known false positives in `geometry-v1`. See [historical scoring evidence](scoring-evidence-1.3.md). V2 reduces the tested synthetic failures; iPad calibration remains open. Learned models and font capture need separate consent, provenance, revision and export designs before implementation.
 
 ## Validation limits and checks
 
 Imports read at most 1 MB plus one overflow byte. Limits are 256 glyphs, 8 strokes per glyph, 64 curves per stroke, 16 profiles, 4,096 joins, 128 lessons, 32 graphemes per lesson, 65,536 sampled points per guide and 16,384 per lesson. Positive advances, visible stroke length, lesson vertical extent, unique IDs/symbols, supported algorithms, bounded tolerances, required fields, nonblank guide labels/profile names/instructions and complete lesson coverage are checked before use.
 
 Run `python3 scripts/test-portable.py` for malformed models, new glyph inventory, lifted and raised connections, profile identity, serialization and baseline comparison. `./scripts/test.sh` additionally covers Apple frameworks. `python3 scripts/export-primer.py --check` verifies the five-letter visual against the loaded model. UI import, selection, replay and device scoring still require the [iPad checklist](device-validation.md).
+
+### Independent practice: geometry-v3
+
+Bundled revision 3 guides select `geometry-v3`. Their curves, separate paths, joins, lessons and line ratios are unchanged. V3 rejects `matchTolerance`: neither trace-coverage percentage contributes to its grade. It uses the same uniform extent fit without v2's coverage-based translation refinement, and derives form tolerance from the existing profile's `shapeTolerance` and `shapeFalloff`. `lengthAllowance` is required, finite, and between 1 and 4 model path lengths (bundled value 2); it permits ordinary retracing before excessive pen travel caps a result. Other algorithms reject this unused field. Results include optional `excessLengthLimit` and omit v2 support fields. See [the exact formula and tests](scoring-evidence-1.5.md). Old apps reject v3, and the new app still accepts valid v1/v2 guides. Overlay visibility is a teaching aid, never an assessment parameter.

@@ -1,5 +1,7 @@
 # Scoring evidence — prototype 1.3 guide migration
 
+Historical report for source `a2a46acef78c8985597f39654b3c8abb421eb98b`. Run the reproduction commands in that checkout to reproduce the migration comparison below. Current bundled guides select the newer algorithm described in [1.4 scoring evidence](scoring-evidence-1.4.md); the original v1 fixture remains a compatibility check.
+
 The [1.2 iPad report](ipad-prototype-1.2-evaluation.md) reported unrelated ink around 70 and careful tracing at about 85 or less. This investigation uses deterministic synthetic geometry, not the user's ink. It cannot establish the cause of the reported device tracing results.
 
 ## Reproduction

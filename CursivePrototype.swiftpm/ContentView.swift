@@ -137,7 +137,7 @@ struct ContentView: View {
 
           feedback
           Text(
-            "Practice feedback is experimental. It compares visible shape, height, and vertical position—not writing speed or educational mastery. OCR may misread cursive."
+            "Practice feedback is experimental. It compares shape, height and position using the selected guide profile. Writing speed and educational mastery are unmeasured. OCR may misread cursive."
           )
           .font(.caption).foregroundColor(.secondary)
         }
@@ -205,6 +205,7 @@ struct ContentView: View {
 
   private var replayButton: some View {
     Button {
+      clearCanvas()
       showsTrace = true
       replayID += 1
     } label: {
@@ -216,12 +217,18 @@ struct ContentView: View {
   @ViewBuilder private var feedback: some View {
     if let report = evaluation.analysisReport, let practice = report.practice {
       VStack(alignment: .leading, spacing: 10) {
-        Text("Practice match: \(Int(practice.score.rounded()))/100")
+        Text("Practice score: \(Int(practice.score.rounded()))/100")
           .font(.title2.bold())
         Text(
           "Shape \(Int(practice.shape.rounded())) · Position \(Int(practice.placement.rounded())) · Height \(Int(practice.size.rounded()))"
         )
         .font(.subheadline)
+        if let near = practice.inkNearModel, let covered = practice.modelCoverage {
+          Text(
+            "Ink near example \(Int(near.rounded()))% · Example covered \(Int(covered.rounded()))%"
+          )
+          .font(.subheadline)
+        }
         ForEach(Array(practice.notes.enumerated()), id: \.offset) { _, note in Text(note) }
         Text("OCR read: \(evaluation.recognizedText)").font(.subheadline)
         if let note = report.recognitionNote { Text(note).font(.caption) }
