@@ -505,15 +505,145 @@ def governance_projection(output):
         if "waive_reason" in controller:
             task["waive_reason"] = controller["waive_reason"]
     output = Path(output)
-    require(output.resolve() not in (PLAN.resolve(), STATE.resolve(), LOCK.resolve()),
+    require(".." not in output.parts, "Governance output must not contain path traversal")
+    if not output.is_absolute():
+        output = ROOT / output
+    require(RUN == ROOT / ".agent-harness" and output.parent == RUN,
+            "Governance output must be a fresh direct child of this repository's .agent-harness directory")
+    require(output not in (PLAN, STATE, LOCK),
             "Governance output must be separate from locked inputs and controller state")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(projection, indent=2) + "\n", encoding="utf-8")
+    require(not output.exists() and not output.is_symlink(),
+            "Governance output already exists; preserve it and choose a fresh path")
+    payload = json.dumps(projection, indent=2) + "\n"
+    try:
+        # Anchor exclusive creation to the actual RUN directory, without following
+        # a directory symlink or any existing file, including a raced-in symlink.
+        directory = os.open(RUN, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            descriptor = os.open(output.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                 mode=0o600, dir_fd=directory)
+            with os.fdopen(descriptor, "w", encoding="utf-8") as destination:
+                destination.write(payload)
+        finally:
+            os.close(directory)
+    except OSError as exc:
+        raise GateError(f"Cannot create fresh governance output inside .agent-harness: {exc}") from exc
     return {"governance_output": str(output), "statuses": {t["id"]: t["status"] for t in projection["tasks"]}}
 
 
 class FailureCases(unittest.TestCase):
     """Exercise rejection behavior before freeze, without live Jira or GitHub."""
+
+    @contextlib.contextmanager
+    def governance_fixture(self):
+        """Trust a test lock; exercise real state projection and filesystem writes."""
+        plan = read_json(ROOT / "specs/harness/curs-1-plan.json")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run = root / ".agent-harness"
+            run.mkdir()
+            paths = {"ROOT": root, "RUN": run, "PLAN": run / "curs-1-plan.json",
+                     "STATE": run / "curs-1-state.json", "LOCK": run / "curs-1-lock.json"}
+            state = {"iteration": 10, "status": "closed", "tasks": [
+                {"id": task["id"], "status": "verified", "attempts": 1,
+                 "evidence": [{"phase": "verify-run", "checks": [
+                     {"cmd": check["cmd"], "exit": 0, "passed": True}
+                     for check in task["verification"]]}]} for task in plan["tasks"]]}
+            paths["PLAN"].write_text(json.dumps(plan), encoding="utf-8")
+            paths["STATE"].write_text(json.dumps(state), encoding="utf-8")
+            paths["LOCK"].write_text('{"fixture": "trusted test lock"}\n', encoding="utf-8")
+            with mock.patch.multiple(__name__, **paths), mock.patch(
+                    __name__ + ".lock_check", return_value=({}, plan)):
+                yield root, run
+
+    def test_governance_output_cannot_overwrite_repository_files(self):
+        with self.governance_fixture() as (root, _):
+            charter = root / "specs/curs-1-charter.md"
+            charter.parent.mkdir()
+            original = b"Existing canonical charter must remain unchanged.\n"
+            charter.write_bytes(original)
+            error = None
+            try:
+                governance_projection(charter)
+            except GateError as exc:
+                error = exc
+            self.assertEqual(charter.read_bytes(), original)
+            self.assertIsInstance(error, GateError)
+
+    def test_governance_output_cannot_overwrite_history_or_reserved_paths(self):
+        with self.governance_fixture() as (_, run):
+            old = run / "curs-1-governance.json"
+            old.write_bytes(b"Historical governance projection\n")
+            for output in (old, PLAN, STATE, LOCK):
+                original = output.read_bytes()
+                error = None
+                try:
+                    governance_projection(output)
+                except GateError as exc:
+                    error = exc
+                with self.subTest(path=output.name):
+                    self.assertEqual(output.read_bytes(), original)
+                    self.assertIsInstance(error, GateError)
+
+    def test_governance_output_rejects_traversal_and_symlink_escape(self):
+        with self.governance_fixture() as (root, run):
+            outside = root / "outside"
+            outside.mkdir()
+            (run / "escape").symlink_to(outside, target_is_directory=True)
+            for output in (run / "../outside/traversal.json", run / "escape/symlink.json"):
+                with self.subTest(output=output), self.assertRaises(GateError):
+                    governance_projection(output)
+            self.assertEqual(list(outside.iterdir()), [])
+
+    def test_governance_output_creates_fresh_projection_inside_run(self):
+        with self.governance_fixture() as (_, run):
+            before = {path: path.read_bytes() for path in (PLAN, STATE, LOCK)}
+            output = run / "curs-1-governance-review-2.json"
+            result = governance_projection(output)
+            self.assertEqual(result["statuses"], {
+                "T1": "done", "T2": "done", "T3": "done", "T4": "done", "T5": "done"})
+            projection = read_json(output)
+            self.assertEqual(projection["iteration"], 10)
+            self.assertEqual(projection["controller_status"], "closed")
+            self.assertEqual(projection["controller_state"], ".agent-harness/curs-1-state.json")
+            self.assertEqual({path: path.read_bytes() for path in before}, before)
+
+    def test_governance_output_requires_direct_run_child(self):
+        with self.governance_fixture() as (_, run):
+            with self.assertRaises(GateError):
+                governance_projection(run / "history/new-governance.json")
+            self.assertFalse((run / "history").exists())
+
+    def test_governance_output_accepts_relative_run_path(self):
+        with self.governance_fixture() as (root, run):
+            previous = Path.cwd()
+            try:
+                os.chdir(root)
+                governance_projection(Path(".agent-harness/curs-1-governance-next.json"))
+            finally:
+                os.chdir(previous)
+            projection = read_json(run / "curs-1-governance-next.json")
+            self.assertEqual(projection["controller_status"], "closed")
+            self.assertEqual(projection["iteration"], 10)
+
+    def test_governance_output_rejects_symlink_file_or_run_directory(self):
+        with self.governance_fixture() as (root, run):
+            outside = root / "outside"
+            outside.mkdir()
+            existing = outside / "existing.json"
+            existing.write_bytes(b"Outside content\n")
+            alias = run / "symlink-governance.json"
+            alias.symlink_to(existing)
+            with self.assertRaises(GateError):
+                governance_projection(alias)
+            self.assertEqual(existing.read_bytes(), b"Outside content\n")
+            original_state = STATE.read_bytes()
+            run.rename(root / "original-run")
+            run.symlink_to(outside, target_is_directory=True)
+            (outside / "curs-1-state.json").write_bytes(original_state)
+            with self.assertRaises(GateError):
+                governance_projection(run / "new-governance.json")
+            self.assertFalse((outside / "new-governance.json").exists())
 
     @contextlib.contextmanager
     def delivery_fixture(self, statuses=("Done", "Done", "Done")):

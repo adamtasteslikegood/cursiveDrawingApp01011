@@ -198,6 +198,12 @@ python3 "$CURS_GOVERNANCE_GATE" --plan .agent-harness/curs-1-governance.json --m
 python3 "$CURS_CONTROLLER" close --state .agent-harness/curs-1-state.json
 ```
 
+The projection output must be a fresh file directly inside this repository's
+`.agent-harness/` directory. Existing paths, nested paths, traversal and symlinks
+are rejected; exclusive creation preserves historical files. If a projection
+already exists, retain it and choose a new filename such as
+`.agent-harness/curs-1-governance-2.json`, then pass that same file to the PM gate.
+
 `CURS_GOVERNANCE_GATE` is the exact `governance_gate` path printed at preparation.
 The projection preserves the plan's ownership, acceptance and limits plus full
 controller evidence. It maps controller `verified` to PM `done` only with actual
@@ -211,6 +217,8 @@ and preparation regressions with `python3 scripts/test_curs_1_preparation.py`.
 CI runs both. The verifier checks stale/denied evidence, pagination, label-only
 review, unexpected active children, preserved scope, committed artifacts,
 acceptance receipts, invalid PR identity and missing/failing/stale workflows.
+It also checks that governance output preserves existing files and rejects
+paths outside the run directory, nested paths and symlinks.
 The preparation suite checks resolved-plan governance, skill inventory, retry
 after failure and preservation of existing runs. Neither suite uses synthetic
 fixtures as live acceptance evidence.
