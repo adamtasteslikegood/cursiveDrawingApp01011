@@ -100,8 +100,8 @@ class PreparationTests(unittest.TestCase):
             "print(json.dumps({'verdict':'PASS'}))\n",
             encoding="utf-8")
 
-    def prepare(self):
-        script = self.root / "scripts/prepare-curs-1-harness.py"
+    def prepare(self, script=None):
+        script = script or self.root / "scripts/prepare-curs-1-harness.py"
         if (self.root / "swap-during-open").exists():
             # Simulate a replacement between the directory inspection and the
             # actual file open, regardless of Path.open versus os.open usage.
@@ -153,6 +153,72 @@ class PreparationTests(unittest.TestCase):
     def assert_outside_untouched(self, outside):
         self.assertEqual(sorted(path.name for path in outside.iterdir()), ["sentinel.json"])
         self.assertEqual((outside / "sentinel.json").read_bytes(), b"original outside contents\n")
+
+    def prepare_production_run(self):
+        """Freeze the real checker; skip only its separately tested self-test command."""
+        shutil.copyfile(ROOT / "scripts/check_curs_1_delivery.py",
+                        self.root / "scripts/check_curs_1_delivery.py")
+        launcher = self.root / "prepare_fixture.py"
+        launcher.write_text(
+            "import pathlib, runpy, subprocess\n"
+            "original_run = subprocess.run\n"
+            "def run(command, *args, **kwargs):\n"
+            "    if len(command) == 3 and command[1:] == ['scripts/check_curs_1_delivery.py', '--self-test']:\n"
+            "        return subprocess.CompletedProcess(command, 0)\n"
+            "    return original_run(command, *args, **kwargs)\n"
+            "subprocess.run = run\n"
+            "runpy.run_path(str(pathlib.Path.cwd() / 'scripts/prepare-curs-1-harness.py'), run_name='__main__')\n",
+            encoding="utf-8")
+        self.assert_exit(self.prepare(launcher), 0)
+        plan = json.loads((self.run / "curs-1-plan.json").read_text())
+        # The documented controller init contract; no installed plugin needed.
+        state = {
+            "schema": "agent-harness/state.v1", "goal": plan["goal"],
+            "domain": plan["domain"], "plan_file": ".agent-harness/curs-1-plan.json",
+            "created_at": "2026-10-09T00:00:00Z", "iteration": 0,
+            "max_loop_iterations": 12, "status": "open",
+            "tasks": [{"id": task["id"], "skill": task["skill"],
+                       "objective": task["objective"], "verification": task["verification"],
+                       "max_attempts": 3, "attempts": 0, "status": "pending", "evidence": []}
+                      for task in plan["tasks"]],
+        }
+        (self.run / "curs-1-state.json").write_text(json.dumps(state), encoding="utf-8")
+
+    def check(self):
+        return subprocess.run(
+            [sys.executable, str(self.root / "scripts/prepare-curs-1-harness.py"), "--check"],
+            cwd=self.root, capture_output=True, text=True, timeout=20, check=False)
+
+    def test_check_cli_accepts_an_honest_prepared_initialized_run(self):
+        # Control case: real production lock_check accepts the producer's output.
+        self.prepare_production_run()
+        self.assert_exit(self.check(), 0)
+
+    def test_check_cli_rejects_post_init_directory_and_reserved_file_links(self):
+        # Path-following reads must not accept byte-identical redirected files.
+        self.prepare_production_run()
+        outside = self.outside_directory()
+        for name in ("run", "manifest", "plan", "lock", "state", "dangling-state"):
+            with self.subTest(link=name):
+                self.assert_exit(self.check(), 0)
+                target = self.run if name == "run" else self.run / f"curs-1-{'state' if name == 'dangling-state' else name}.json"
+                preserved = outside / target.name
+                target.rename(preserved)
+                target.symlink_to(outside / "missing-state" if name == "dangling-state" else preserved,
+                                  target_is_directory=name == "run")
+                before = {str(path.relative_to(outside)): path.read_bytes()
+                          for path in outside.rglob("*") if path.is_file()}
+                try:
+                    self.assert_exit(self.check(), 1)
+                    self.assertTrue(target.is_symlink())
+                    after = {str(path.relative_to(outside)): path.read_bytes()
+                             for path in outside.rglob("*") if path.is_file()}
+                    self.assertEqual(after, before)
+                finally:
+                    target.unlink()
+                    preserved.rename(target)
+        self.assert_exit(self.check(), 0)
+        self.assert_outside_untouched(outside)
 
     def test_governance_validates_exact_resolved_bytes_before_runtime_writes(self):
         # Catches validating the unresolved template or validating after publish.

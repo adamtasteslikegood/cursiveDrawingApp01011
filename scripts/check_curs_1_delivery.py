@@ -14,6 +14,7 @@ import html
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -88,24 +89,117 @@ def snapshot(evidence_dir, name, now=None):
     return data, envelope
 
 
-def lock_check():
-    lock = read_json(LOCK)
-    require(lock.get("schema") == "curs-1/check-lock.v1", "Invalid lock schema")
+@contextlib.contextmanager
+def frozen_runtime_entries():
+    """Pin regular runtime metadata before reading; reject links, even dangling state."""
+    require(RUN == ROOT / ".agent-harness" and LOCK == RUN / "curs-1-lock.json"
+            and PLAN == RUN / "curs-1-plan.json" and STATE == RUN / "curs-1-state.json",
+            "Runtime metadata paths must use this repository's reserved identities")
+    try:
+        with contextlib.ExitStack() as opened:
+            directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            root_fd = os.open(ROOT, directory_flags)
+            opened.callback(os.close, root_fd)
+            runtime_fd = os.open(".agent-harness", directory_flags, dir_fd=root_fd)
+            opened.callback(os.close, runtime_fd)
+            streams = {}
+            for name in ("lock", "manifest", "plan", "state"):
+                filename = f"curs-1-{name}.json"
+                try:
+                    descriptor = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                         dir_fd=runtime_fd)
+                except FileNotFoundError:
+                    if name == "state":
+                        continue  # Only genuine absence is allowed before initialization.
+                    raise
+                opened.callback(os.close, descriptor)
+                require(stat.S_ISREG(os.fstat(descriptor).st_mode),
+                        f"Reserved runtime metadata must be a regular file: {filename}")
+                stream = opened.enter_context(os.fdopen(descriptor, "rb", closefd=False))
+                streams[name] = stream
+            # All reserved entries have been pinned without following links before
+            # any JSON is read or any frozen digest is checked.
+            yield {name: stream.read() for name, stream in streams.items()}
+            named = os.stat(".agent-harness", dir_fd=root_fd, follow_symlinks=False)
+            pinned = os.fstat(runtime_fd)
+            require(stat.S_ISDIR(named.st_mode)
+                    and (named.st_dev, named.st_ino) == (pinned.st_dev, pinned.st_ino),
+                    "Runtime directory identity changed during lock validation")
+            for name, stream in streams.items():
+                named = os.stat(f"curs-1-{name}.json", dir_fd=runtime_fd, follow_symlinks=False)
+                pinned = os.fstat(stream.fileno())
+                require(stat.S_ISREG(named.st_mode)
+                        and (named.st_dev, named.st_ino) == (pinned.st_dev, pinned.st_ino),
+                        f"Reserved runtime metadata identity changed: curs-1-{name}.json")
+            if "state" not in streams:
+                try:
+                    os.stat("curs-1-state.json", dir_fd=runtime_fd, follow_symlinks=False)
+                except FileNotFoundError:
+                    pass
+                else:
+                    raise GateError("Controller state appeared during lock validation; recheck the run")
+    except OSError as exc:
+        raise GateError(f"Cannot read reserved runtime metadata without following links: {exc}") from exc
+
+
+def runtime_json(entries, name):
+    try:
+        return json.loads(entries[name].decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
+        raise GateError(f"Invalid reserved runtime JSON: curs-1-{name}.json: {exc}") from exc
+
+
+def validate_plugin_roles(lock, manifest, hashes):
+    paths = {}
+    for name in ("controller", "governance_gate"):
+        value = lock.get(name)
+        require(isinstance(value, str), f"Frozen lock omits the plugin {name}")
+        path = Path(value)
+        require(path.is_absolute() and str(path.resolve()) == value,
+                f"Frozen plugin {name} reference must be an absolute canonical path")
+        require(value in hashes, f"Frozen lock omits the plugin {name}")
+        paths[name] = path
+    controller = paths["controller"]
+    require(controller.name == "loop_controller.py" and controller.parent.name == "scripts"
+            and (controller.parent.parent / "SKILL.md").is_file(),
+            "Frozen controller must identify an installed skill's scripts/loop_controller.py")
+    require(isinstance(manifest, dict) and manifest.get("schema") == "agent-harness/manifest.v1",
+            "Invalid resolved manifest schema")
+    skills = manifest.get("skills")
+    require(isinstance(skills, list) and all(isinstance(skill, dict) for skill in skills),
+            "Resolved manifest skill inventory is missing")
+    matches = [skill for skill in skills if skill.get("name") == "pm-skills"]
+    require(len(matches) == 1 and isinstance(matches[0].get("path"), str),
+            "Resolved manifest must identify one pm-skills installation")
+    pm_root = Path(matches[0]["path"])
+    require(pm_root.is_absolute() and str(pm_root.resolve()) == matches[0]["path"],
+            "Resolved pm-skills installation must have an absolute canonical path")
+    require(paths["governance_gate"] == pm_root / "scripts/delivery_loop_gate.py",
+            "Frozen governance gate differs from the resolved pm-skills installation")
+
+
+def validate_locked_inputs(entries):
+    lock = runtime_json(entries, "lock")
+    require(isinstance(lock, dict) and lock.get("schema") == "curs-1/check-lock.v1", "Invalid lock schema")
     hashes = lock.get("sha256", {})
+    require(isinstance(hashes, dict), "Frozen digests must be a path/hash object")
     required_paths = {
         "scripts/check_curs_1_delivery.py", "scripts/prepare-curs-1-harness.py",
         "specs/harness/curs-1-manifest.json", "specs/harness/curs-1-plan.json",
         "docs/curs-1-harness.md", ".agent-harness/curs-1-manifest.json",
-        ".agent-harness/curs-1-plan.json",
+        ".agent-harness/curs-1-plan.json", "scripts/check_repository.py",
+        "scripts/lint.sh", "scripts/test-portable.py",
     }
     require(required_paths <= set(hashes), "Frozen lock omits a required check or plan")
+    runtime_paths = {RUN / "curs-1-manifest.json": entries["manifest"], PLAN: entries["plan"]}
     for relative, expected in hashes.items():
         path = Path(relative) if Path(relative).is_absolute() else ROOT / relative
-        require(path.is_file() and digest(path) == expected,
+        actual = hashlib.sha256(runtime_paths[path]).hexdigest() if path in runtime_paths else (
+            digest(path) if path.is_file() else None)
+        require(actual is not None and actual == expected,
                 f"Frozen input changed or disappeared: {relative}")
-    for name in ("controller", "governance_gate"):
-        require(lock.get(name) in hashes, f"Frozen lock omits the plugin {name}")
-    plan = read_json(PLAN)
+    validate_plugin_roles(lock, runtime_json(entries, "manifest"), hashes)
+    plan = runtime_json(entries, "plan")
     require([t.get("id") for t in plan.get("tasks", [])] == list(TASKS),
             "Resolved plan must have exactly T1 through T5 in order")
     require(plan.get("scope", {}).get("issue_keys") == list(ISSUES), "Plan scope changed")
@@ -128,8 +222,8 @@ def lock_check():
                 f"Unexpected executable verification contract for {task['id']}")
         require(task.get("acceptance", {}).get("cmd") == command,
                 f"Acceptance command changed for {task['id']}")
-    if STATE.exists():
-        state = read_json(STATE)
+    if "state" in entries:
+        state = runtime_json(entries, "state")
         require(state.get("schema") == "agent-harness/state.v1", "Invalid controller state")
         require(state.get("max_loop_iterations") == 12, "Controller iteration budget changed")
         require([t.get("id") for t in state.get("tasks", [])] == list(TASKS),
@@ -139,6 +233,11 @@ def lock_check():
                     and task.get("max_attempts") == 3,
                     f"Controller checks changed for {task['id']}")
     return lock, plan
+
+
+def lock_check():
+    with frozen_runtime_entries() as entries:
+        return validate_locked_inputs(entries)
 
 
 def section_bodies(text, required):
@@ -479,8 +578,10 @@ def final_delivery(evidence_dir):
 
 
 def governance_projection(output):
-    _, plan = lock_check()
-    state = read_json(STATE)
+    with frozen_runtime_entries() as entries:
+        _, plan = validate_locked_inputs(entries)
+        require("state" in entries, "Governance projection requires an initialized controller state")
+        state = runtime_json(entries, "state")
     projection = copy.deepcopy(plan)
     projection["iteration"] = state["iteration"]
     projection["controller_state"] = str(STATE.relative_to(ROOT))
@@ -535,31 +636,177 @@ class FailureCases(unittest.TestCase):
     """Exercise rejection behavior before freeze, without live Jira or GitHub."""
 
     @contextlib.contextmanager
-    def governance_fixture(self):
-        """Trust a test lock; exercise real state projection and filesystem writes."""
-        plan = read_json(ROOT / "specs/harness/curs-1-plan.json")
+    def lock_fixture(self):
+        """Prepare honest frozen inputs and initialized state in a disposable root."""
+        source = ROOT
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             run = root / ".agent-harness"
             run.mkdir()
-            paths = {"ROOT": root, "RUN": run, "PLAN": run / "curs-1-plan.json",
-                     "STATE": run / "curs-1-state.json", "LOCK": run / "curs-1-lock.json"}
-            state = {"iteration": 10, "status": "closed", "tasks": [
+            frozen = ["scripts/check_curs_1_delivery.py", "scripts/prepare-curs-1-harness.py",
+                      "specs/harness/curs-1-manifest.json", "specs/harness/curs-1-plan.json",
+                      "docs/curs-1-harness.md", "scripts/check_repository.py", "scripts/lint.sh",
+                      "scripts/test-portable.py"]
+            for relative in frozen:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((source / relative).read_bytes())
+            harness = root / "custom controller skill"
+            pm = root / "custom PM skills"
+            for skill in (harness, pm / "pm-skills", pm / "jira-expert", pm / "confluence-expert"):
+                skill.mkdir(parents=True)
+                (skill / "SKILL.md").write_text("# Installed fixture skill\n", encoding="utf-8")
+            controller = harness / "scripts/loop_controller.py"
+            governance = pm / "pm-skills/scripts/delivery_loop_gate.py"
+            for path in (controller, governance):
+                path.parent.mkdir()
+                path.write_text("# Frozen fixture plugin\n", encoding="utf-8")
+            for name in ("manifest", "plan"):
+                raw = (source / f"specs/harness/curs-1-{name}.json").read_text(encoding="utf-8")
+                (run / f"curs-1-{name}.json").write_text(raw.replace("${PM_SKILLS_DIR}", str(pm)), encoding="utf-8")
+                frozen.append(f".agent-harness/curs-1-{name}.json")
+            frozen += [str(controller), str(governance)]
+            hashes = {name: hashlib.sha256((Path(name) if Path(name).is_absolute()
+                                           else root / name).read_bytes()).hexdigest() for name in frozen}
+            lock = {"schema": "curs-1/check-lock.v1", "controller": str(controller),
+                    "governance_gate": str(governance), "sha256": hashes}
+            (run / "curs-1-lock.json").write_text(json.dumps(lock), encoding="utf-8")
+            plan = read_json(run / "curs-1-plan.json")
+            state = {"schema": "agent-harness/state.v1", "max_loop_iterations": 12,
+                     "tasks": [{"id": task["id"], "verification": task["verification"], "max_attempts": 3}
+                               for task in plan["tasks"]]}
+            (run / "curs-1-state.json").write_text(json.dumps(state), encoding="utf-8")
+            with mock.patch.multiple(__name__, ROOT=root, RUN=run, LOCK=run / "curs-1-lock.json",
+                                     PLAN=run / "curs-1-plan.json", STATE=run / "curs-1-state.json"):
+                yield root, run
+
+    def test_lock_accepts_honest_initialized_inputs_and_preinit_state_absence(self):
+        with self.lock_fixture() as (_, _):
+            self.assertEqual([task["id"] for task in lock_check()[1]["tasks"]], ["T1", "T2", "T3", "T4", "T5"])
+            STATE.unlink()
+            self.assertEqual(lock_check()[1]["scope"]["issue_keys"], ["CURS-6", "CURS-7", "CURS-8"])
+
+    def test_lock_rejects_reserved_file_symlinks_after_initialization(self):
+        for name in ("manifest", "plan", "lock", "state"):
+            with self.subTest(name=name), self.lock_fixture() as (root, run):
+                original = run / f"curs-1-{name}.json"
+                redirected = root / f"redirected-{name}.json"
+                original.rename(redirected)
+                original.symlink_to(redirected)
+                with self.assertRaises(GateError):
+                    lock_check()
+
+    def test_lock_rejects_runtime_directory_and_dangling_state_symlinks(self):
+        for kind in ("runtime", "dangling state"):
+            with self.subTest(kind=kind), self.lock_fixture() as (root, run):
+                if kind == "runtime":
+                    redirected = root / "redirected-runtime"
+                    run.rename(redirected)
+                    run.symlink_to(redirected, target_is_directory=True)
+                else:
+                    STATE.unlink()
+                    STATE.symlink_to(root / "missing-state.json")
+                with self.assertRaises(GateError):
+                    lock_check()
+
+    def test_lock_rejects_unrelated_or_swapped_plugin_role_references(self):
+        with self.lock_fixture() as (_, _):
+            original = read_json(LOCK)
+            for changes in ({"controller": "scripts/lint.sh", "governance_gate": "scripts/check_repository.py"},
+                            {"controller": original["governance_gate"]},
+                            {"governance_gate": original["controller"]}):
+                LOCK.write_text(json.dumps(original | changes), encoding="utf-8")
+                with self.subTest(changes=changes), self.assertRaises(GateError):
+                    lock_check()
+
+    def test_lock_requires_installed_controller_skill_identity(self):
+        with self.lock_fixture() as (_, _):
+            controller = Path(read_json(LOCK)["controller"])
+            (controller.parent.parent / "SKILL.md").unlink()
+            with self.assertRaises(GateError):
+                lock_check()
+
+    def test_lock_rejects_missing_frozen_input_with_invalid_digest(self):
+        with self.lock_fixture() as (root, _):
+            (root / "docs/curs-1-harness.md").unlink()
+            lock = read_json(LOCK)
+            lock["sha256"]["docs/curs-1-harness.md"] = None
+            LOCK.write_text(json.dumps(lock), encoding="utf-8")
+            with self.assertRaises(GateError):
+                lock_check()
+
+    def test_lock_rejects_state_appearing_during_validation(self):
+        for kind in ("regular state", "dangling symlink"):
+            with self.subTest(kind=kind), self.lock_fixture() as (root, _):
+                original = STATE.read_bytes()
+                STATE.unlink()
+                with self.assertRaises(GateError):
+                    with frozen_runtime_entries() as entries:
+                        validate_locked_inputs(entries)
+                        if kind == "regular state":
+                            STATE.write_bytes(original)
+                        else:
+                            STATE.symlink_to(root / "missing-state.json")
+
+    def test_lock_rejects_nonregular_metadata_without_leaking_descriptor(self):
+        with self.lock_fixture() as (_, _):
+            STATE.unlink()
+            STATE.mkdir()
+            before = len(list(Path("/dev/fd").iterdir()))
+            with self.assertRaises(GateError):
+                lock_check()
+            self.assertEqual(len(list(Path("/dev/fd").iterdir())), before)
+
+    def test_lock_requires_all_canonical_executable_digests(self):
+        with self.lock_fixture() as (_, _):
+            original = read_json(LOCK)
+            for relative in ("scripts/check_repository.py", "scripts/lint.sh", "scripts/test-portable.py"):
+                lock = copy.deepcopy(original)
+                del lock["sha256"][relative]
+                LOCK.write_text(json.dumps(lock), encoding="utf-8")
+                with self.subTest(relative=relative), self.assertRaises(GateError):
+                    lock_check()
+
+    @contextlib.contextmanager
+    def governance_fixture(self):
+        """Use honest locked inputs, real controller receipts and filesystem writes."""
+        with self.lock_fixture() as (root, run):
+            plan = read_json(PLAN)
+            state = {"schema": "agent-harness/state.v1", "max_loop_iterations": 12,
+                "iteration": 10, "status": "closed", "tasks": [
                 {"id": task["id"], "status": "verified", "attempts": 1,
+                 "max_attempts": 3, "verification": task["verification"],
                  "evidence": [{"phase": "verify-run", "checks": [
                      {"cmd": check["cmd"], "exit": 0, "passed": True}
                      for check in task["verification"]]}]} for task in plan["tasks"]]}
-            paths["PLAN"].write_text(json.dumps(plan), encoding="utf-8")
-            paths["STATE"].write_text(json.dumps(state), encoding="utf-8")
-            paths["LOCK"].write_text('{"fixture": "trusted test lock"}\n', encoding="utf-8")
-            with mock.patch.multiple(__name__, **paths), mock.patch(
-                    __name__ + ".lock_check", return_value=({}, plan)):
-                yield root, run
+            STATE.write_text(json.dumps(state), encoding="utf-8")
+            yield root, run
+
+    def test_governance_projection_uses_the_validated_state_snapshot(self):
+        with self.governance_fixture() as (root, run):
+            replacement = root / "unvalidated-state.json"
+            state = read_json(STATE)
+            state["iteration"] = 11
+            replacement.write_text(json.dumps(state), encoding="utf-8")
+            reader = frozen_runtime_entries
+
+            @contextlib.contextmanager
+            def replace_state_after_validation():
+                with reader() as entries:
+                    yield entries
+                STATE.rename(root / "validated-state.json")
+                STATE.symlink_to(replacement)
+
+            output = run / "curs-1-governance-pinned-state.json"
+            with mock.patch(__name__ + ".frozen_runtime_entries", replace_state_after_validation):
+                governance_projection(output)
+            self.assertTrue(STATE.is_symlink())
+            self.assertEqual(read_json(output)["iteration"], 10)
 
     def test_governance_output_cannot_overwrite_repository_files(self):
         with self.governance_fixture() as (root, _):
             charter = root / "specs/curs-1-charter.md"
-            charter.parent.mkdir()
+            charter.parent.mkdir(exist_ok=True)
             original = b"Existing canonical charter must remain unchanged.\n"
             charter.write_bytes(original)
             error = None

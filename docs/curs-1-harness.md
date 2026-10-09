@@ -22,6 +22,14 @@ then freezes SHA-256 checksums for the templates, verifier, preparation script,
 this guide, resolved plan/manifest, canonical repository/lint/portable checks and
 plugin controller/governance scripts. It **does not initialize** the controller.
 
+The lock is a local drift detector for a reviewed setup baseline. Review its
+bytes and exact plugin paths before initialization, and retain the original
+commit and run artifacts for later comparison. Plugin-role checks prevent
+accidental controller/governance substitutions. The baseline and verifier remain
+trusted inputs; the lock does not authenticate them against a party able to
+rewrite both. A second mutable local digest would not establish independent
+trust. Do not update hashes to make an existing run pass.
+
 Pass the installed skill directories explicitly. `--agent-harness-dir` contains
 `SKILL.md` and `scripts/loop_controller.py`. `--pm-skills-dir` contains the
 `pm-skills/`, `jira-expert/` and `confluence-expert/` directories.
@@ -37,7 +45,9 @@ initialization/close commands. Existing CURS-1 run files cause preparation to
 fail, preserving the previous run. The runtime and evidence directories must be
 real directories inside this checkout; symlinked paths are rejected. Preparation
 anchors exclusive writes to the validated runtime directory so a path replacement
-cannot redirect generated files outside it. Review the lock and resolved plan before
+cannot redirect generated files outside it. The frozen-input check also rejects
+symlinked runtime directories and reserved files, including dangling state links.
+Review the lock and resolved plan before
 running the printed `init_after_setup_review` command. Immediately check the
 frozen inputs and controller checks after initialization:
 
@@ -220,6 +230,7 @@ and preparation regressions with `python3 scripts/test_curs_1_preparation.py`.
 CI runs both. The verifier checks stale/denied evidence, pagination, label-only
 review, unexpected active children, preserved scope, committed artifacts,
 acceptance receipts, invalid PR identity and missing/failing/stale workflows.
+It checks plugin-role identities and rejects symlinks during lock validation.
 It also checks that governance output preserves existing files and rejects
 paths outside the run directory, nested paths and symlinks.
 The preparation suite checks resolved-plan governance, skill inventory, retry
