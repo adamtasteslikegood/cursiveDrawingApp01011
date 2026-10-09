@@ -7,6 +7,7 @@ preparation refuses to overwrite any CURS-1 plan, manifest, lock or state file.
 
 import argparse
 import datetime as dt
+import fcntl
 import hashlib
 import json
 import os
@@ -127,8 +128,34 @@ def runtime_digest(path, runtime_fd):
 
 
 def cleanup_failed_attempt(files, directories, runtime_fd):
-    """Remove this attempt's own files/empty directories unless a state appears."""
+    """Serialize with supported init before removing this attempt's own outputs."""
     warnings = []
+    plan_fd = None
+    try:
+        plan_entry = next((entry for entry in files if entry[0].name == "curs-1-plan.json"), None)
+        if plan_entry is not None:
+            path, identity, parent_fd = plan_entry
+            plan_fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                              dir_fd=parent_fd)
+            pinned = os.fstat(plan_fd)
+            if not stat.S_ISREG(pinned.st_mode) or (pinned.st_dev, pinned.st_ino) != identity:
+                raise ValueError("Published PLAN was replaced; preserving the attempt")
+            fcntl.flock(plan_fd, fcntl.LOCK_EX)
+            # A waiting initializer/cleanup may have removed or replaced PLAN.
+            named = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+            if (named.st_dev, named.st_ino) != identity:
+                raise ValueError("Published PLAN changed while waiting; preserving the attempt")
+        return remove_failed_outputs(files, directories, runtime_fd, warnings)
+    except (OSError, ValueError) as exc:
+        warnings.append(f"Preserved preparation outputs: {exc}")
+        return warnings
+    finally:
+        if plan_fd is not None:
+            os.close(plan_fd)
+
+
+def remove_failed_outputs(files, directories, runtime_fd, warnings):
+    """Caller holds its published PLAN lock, or has not published a PLAN yet."""
     for path, identity, parent_fd in [*reversed(files), *reversed(directories)]:
         if state_entry_exists(runtime_fd):
             break
@@ -214,6 +241,7 @@ def main():
         frozen = [
             "specs/harness/curs-1-manifest.json", "specs/harness/curs-1-plan.json",
             "scripts/check_curs_1_delivery.py", "scripts/prepare-curs-1-harness.py",
+            "scripts/initialize-curs-1-harness.py",
             "docs/curs-1-harness.md", ".agent-harness/curs-1-manifest.json",
             ".agent-harness/curs-1-plan.json", "scripts/check_repository.py",
             "scripts/lint.sh", "scripts/test-portable.py", str(controller), str(governance),
@@ -235,9 +263,7 @@ def main():
         validate_directory_binding(RUN, runtime_fd, root_fd)
         validate_directory_binding(RUN / "curs-1-evidence", evidence_fd, runtime_fd)
         commands = {
-            "init_after_setup_review": shlex.join(["python3", str(controller), "init", "--plan",
-                                                  ".agent-harness/curs-1-plan.json", "--state",
-                                                  ".agent-harness/curs-1-state.json"]),
+            "init_after_setup_review": "python3 scripts/initialize-curs-1-harness.py",
             "check_after_init": "python3 scripts/prepare-curs-1-harness.py --check",
             "next": shlex.join(["python3", str(controller), "next", "--state",
                                 ".agent-harness/curs-1-state.json"]),

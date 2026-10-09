@@ -119,12 +119,8 @@ def frozen_runtime_entries():
                 streams[name] = stream
             # All reserved entries have been pinned without following links before
             # any JSON is read or any frozen digest is checked.
-            yield {name: stream.read() for name, stream in streams.items()}
-            named = os.stat(".agent-harness", dir_fd=root_fd, follow_symlinks=False)
-            pinned = os.fstat(runtime_fd)
-            require(stat.S_ISDIR(named.st_mode)
-                    and (named.st_dev, named.st_ino) == (pinned.st_dev, pinned.st_ino),
-                    "Runtime directory identity changed during lock validation")
+            yield {name: stream.read() for name, stream in streams.items()}, root_fd, runtime_fd
+            validate_runtime_directory_binding(root_fd, runtime_fd)
             for name, stream in streams.items():
                 named = os.stat(f"curs-1-{name}.json", dir_fd=runtime_fd, follow_symlinks=False)
                 pinned = os.fstat(stream.fileno())
@@ -140,6 +136,14 @@ def frozen_runtime_entries():
                     raise GateError("Controller state appeared during lock validation; recheck the run")
     except OSError as exc:
         raise GateError(f"Cannot read reserved runtime metadata without following links: {exc}") from exc
+
+
+def validate_runtime_directory_binding(root_fd, runtime_fd):
+    named = os.stat(".agent-harness", dir_fd=root_fd, follow_symlinks=False)
+    pinned = os.fstat(runtime_fd)
+    require(stat.S_ISDIR(named.st_mode)
+            and (named.st_dev, named.st_ino) == (pinned.st_dev, pinned.st_ino),
+            "Runtime directory identity changed during lock validation")
 
 
 def runtime_json(entries, name):
@@ -185,6 +189,7 @@ def validate_locked_inputs(entries):
     require(isinstance(hashes, dict), "Frozen digests must be a path/hash object")
     required_paths = {
         "scripts/check_curs_1_delivery.py", "scripts/prepare-curs-1-harness.py",
+        "scripts/initialize-curs-1-harness.py",
         "specs/harness/curs-1-manifest.json", "specs/harness/curs-1-plan.json",
         "docs/curs-1-harness.md", ".agent-harness/curs-1-manifest.json",
         ".agent-harness/curs-1-plan.json", "scripts/check_repository.py",
@@ -236,7 +241,7 @@ def validate_locked_inputs(entries):
 
 
 def lock_check():
-    with frozen_runtime_entries() as entries:
+    with frozen_runtime_entries() as (entries, _, _):
         return validate_locked_inputs(entries)
 
 
@@ -578,10 +583,14 @@ def final_delivery(evidence_dir):
 
 
 def governance_projection(output):
-    with frozen_runtime_entries() as entries:
+    with frozen_runtime_entries() as (entries, root_fd, runtime_fd):
         _, plan = validate_locked_inputs(entries)
         require("state" in entries, "Governance projection requires an initialized controller state")
         state = runtime_json(entries, "state")
+        return create_governance_projection(output, plan, state, root_fd, runtime_fd)
+
+
+def create_governance_projection(output, plan, state, root_fd, runtime_fd):
     projection = copy.deepcopy(plan)
     projection["iteration"] = state["iteration"]
     projection["controller_state"] = str(STATE.relative_to(ROOT))
@@ -617,16 +626,12 @@ def governance_projection(output):
             "Governance output already exists; preserve it and choose a fresh path")
     payload = json.dumps(projection, indent=2) + "\n"
     try:
-        # Anchor exclusive creation to the actual RUN directory, without following
-        # a directory symlink or any existing file, including a raced-in symlink.
-        directory = os.open(RUN, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        try:
-            descriptor = os.open(output.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                                 mode=0o600, dir_fd=directory)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as destination:
-                destination.write(payload)
-        finally:
-            os.close(directory)
+        # Keep creation in the same directory pinned for lock and state validation.
+        validate_runtime_directory_binding(root_fd, runtime_fd)
+        descriptor = os.open(output.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             mode=0o600, dir_fd=runtime_fd)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as destination:
+            destination.write(payload)
     except OSError as exc:
         raise GateError(f"Cannot create fresh governance output inside .agent-harness: {exc}") from exc
     return {"governance_output": str(output), "statuses": {t["id"]: t["status"] for t in projection["tasks"]}}
@@ -644,6 +649,7 @@ class FailureCases(unittest.TestCase):
             run = root / ".agent-harness"
             run.mkdir()
             frozen = ["scripts/check_curs_1_delivery.py", "scripts/prepare-curs-1-harness.py",
+                      "scripts/initialize-curs-1-harness.py",
                       "specs/harness/curs-1-manifest.json", "specs/harness/curs-1-plan.json",
                       "docs/curs-1-harness.md", "scripts/check_repository.py", "scripts/lint.sh",
                       "scripts/test-portable.py"]
@@ -741,7 +747,7 @@ class FailureCases(unittest.TestCase):
                 original = STATE.read_bytes()
                 STATE.unlink()
                 with self.assertRaises(GateError):
-                    with frozen_runtime_entries() as entries:
+                    with frozen_runtime_entries() as (entries, _, _):
                         validate_locked_inputs(entries)
                         if kind == "regular state":
                             STATE.write_bytes(original)
@@ -760,7 +766,8 @@ class FailureCases(unittest.TestCase):
     def test_lock_requires_all_canonical_executable_digests(self):
         with self.lock_fixture() as (_, _):
             original = read_json(LOCK)
-            for relative in ("scripts/check_repository.py", "scripts/lint.sh", "scripts/test-portable.py"):
+            for relative in ("scripts/check_repository.py", "scripts/lint.sh", "scripts/test-portable.py",
+                             "scripts/initialize-curs-1-harness.py"):
                 lock = copy.deepcopy(original)
                 del lock["sha256"][relative]
                 LOCK.write_text(json.dumps(lock), encoding="utf-8")
@@ -802,6 +809,34 @@ class FailureCases(unittest.TestCase):
                 governance_projection(output)
             self.assertTrue(STATE.is_symlink())
             self.assertEqual(read_json(output)["iteration"], 10)
+
+    def test_governance_projection_rejects_replaced_real_runtime_directory(self):
+        with self.governance_fixture() as (root, run):
+            original = {path.name: path.read_bytes() for path in run.iterdir()}
+            moved = root / "validated-runtime"
+            serializer = json.dumps
+            replaced = False
+
+            def replace_directory_before_write(value, *args, **kwargs):
+                nonlocal replaced
+                if isinstance(value, dict) and value.get("controller_status") == "closed" and not replaced:
+                    run.rename(moved)
+                    run.mkdir()
+                    replaced = True
+                return serializer(value, *args, **kwargs)
+
+            output = run / "curs-1-governance-replaced-directory.json"
+            error = None
+            with mock.patch(__name__ + ".json.dumps", replace_directory_before_write):
+                try:
+                    governance_projection(output)
+                except GateError as exc:
+                    error = exc
+            self.assertFalse(output.exists())
+            self.assertFalse((moved / output.name).exists())
+            self.assertEqual(list(run.iterdir()), [])
+            self.assertEqual({path.name: path.read_bytes() for path in moved.iterdir()}, original)
+            self.assertIsInstance(error, GateError)
 
     def test_governance_output_cannot_overwrite_repository_files(self):
         with self.governance_fixture() as (root, _):

@@ -1,6 +1,6 @@
 # Codex project guide
 
-CURS-1 delivery uses `specs/curs-1-charter.md`, tracked `specs/harness/` templates and `docs/curs-1-harness.md`. Generated run state and snapshots stay in ignored `.agent-harness/`. Preserve historical runs; freeze verifier gates before initialization and resume from controller state. Verify actual Jira Done with acceptance evidence or In Review with an open PR for CURS-6/7/8. A review handoff does not close model/device acceptance or Scrum sprint 119.
+CURS-1 delivery uses `specs/curs-1-charter.md`, tracked `specs/harness/` templates and `docs/curs-1-harness.md`. Generated run state and snapshots stay in ignored `.agent-harness/`. Preserve historical runs; freeze verifier gates before initialization and resume from controller state. Initialize with the printed `scripts/initialize-curs-1-harness.py` command, which coordinates with failed-preparation cleanup through the plan lock. Verify actual Jira Done with acceptance evidence or In Review with an open PR for CURS-6/7/8. A review handoff does not close model/device acceptance or Scrum sprint 119.
 
 ## Purpose and status
 

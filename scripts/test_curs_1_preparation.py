@@ -8,10 +8,12 @@ boundaries while resolution, hashing and filesystem effects execute normally.
 """
 
 import json
+import signal
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -36,6 +38,9 @@ class PreparationTests(unittest.TestCase):
             target = self.root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, target)
+        initializer = ROOT / "scripts/initialize-curs-1-harness.py"
+        if initializer.exists():
+            shutil.copyfile(initializer, self.root / initializer.relative_to(ROOT))
         for name in ("pm-skills", "confluence-expert", "jira-expert"):
             directory = self.pm / name
             directory.mkdir(parents=True)
@@ -154,7 +159,7 @@ class PreparationTests(unittest.TestCase):
         self.assertEqual(sorted(path.name for path in outside.iterdir()), ["sentinel.json"])
         self.assertEqual((outside / "sentinel.json").read_bytes(), b"original outside contents\n")
 
-    def prepare_production_run(self):
+    def prepare_production_run(self, initialized=True):
         """Freeze the real checker; skip only its separately tested self-test command."""
         shutil.copyfile(ROOT / "scripts/check_curs_1_delivery.py",
                         self.root / "scripts/check_curs_1_delivery.py")
@@ -170,6 +175,8 @@ class PreparationTests(unittest.TestCase):
             "runpy.run_path(str(pathlib.Path.cwd() / 'scripts/prepare-curs-1-harness.py'), run_name='__main__')\n",
             encoding="utf-8")
         self.assert_exit(self.prepare(launcher), 0)
+        if not initialized:
+            return
         plan = json.loads((self.run / "curs-1-plan.json").read_text())
         # The documented controller init contract; no installed plugin needed.
         state = {
@@ -188,6 +195,264 @@ class PreparationTests(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(self.root / "scripts/prepare-curs-1-harness.py"), "--check"],
             cwd=self.root, capture_output=True, text=True, timeout=20, check=False)
+
+    def start_process(self, command):
+        process = subprocess.Popen(command, cwd=self.root, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True)
+        def stop():
+            if process.poll() is None:
+                process.kill()
+            process.communicate(timeout=5)
+        self.addCleanup(stop)
+        return process
+
+    def finish_process(self, process, code):
+        stdout, stderr = process.communicate(timeout=10)
+        self.assertEqual(process.returncode, code, stdout + stderr)
+        return stdout, stderr
+
+    def wait_for(self, name, process=None):
+        marker = self.root / name
+        deadline = time.monotonic() + 5
+        while not marker.exists() and time.monotonic() < deadline:
+            if process is not None and process.poll() is not None:
+                stdout, stderr = process.communicate(timeout=5)
+                self.fail(f"Process exited before {name}: {stdout}{stderr}")
+            time.sleep(0.01)
+        self.assertTrue(marker.exists(), f"Timed out waiting for {name}")
+
+    def paused_preparation(self, pause_cleanup=False, production=False):
+        if production:
+            shutil.copyfile(ROOT / "scripts/check_curs_1_delivery.py",
+                            self.root / "scripts/check_curs_1_delivery.py")
+        launcher = self.root / "paused_prepare.py"
+        launcher.write_text(
+            "import importlib.util, pathlib, sys, time\n"
+            "root = pathlib.Path.cwd()\n"
+            "spec = importlib.util.spec_from_file_location('prepare', root / 'scripts/prepare-curs-1-harness.py')\n"
+            "module = importlib.util.module_from_spec(spec)\n"
+            "spec.loader.exec_module(module)\n"
+            "def wait(name):\n"
+            "    deadline = time.monotonic() + 8\n"
+            "    while not (root / name).exists():\n"
+            "        if time.monotonic() > deadline: raise RuntimeError('barrier timeout: ' + name)\n"
+            "        time.sleep(0.01)\n"
+            "original_command = module.checked_command\n"
+            "def command(args):\n"
+            "    if args[1:] == ['scripts/check_curs_1_delivery.py', '--self-test']: return\n"
+            "    if args[1:] == ['scripts/check_curs_1_delivery.py', '--check-lock']:\n"
+            "        (root / 'preparation-ready').touch()\n"
+            "        wait('fail-preparation')\n"
+            "        raise ValueError('injected final preflight failure')\n"
+            "    original_command(args)\n"
+            "module.checked_command = command\n"
+            + ("original_cleanup, original_state = module.cleanup_failed_attempt, module.state_entry_exists\n"
+               "inside_cleanup = False\n"
+               "def cleanup(*args):\n"
+               "    global inside_cleanup\n"
+               "    inside_cleanup = True\n"
+               "    return original_cleanup(*args)\n"
+               "def state(fd):\n"
+               "    if inside_cleanup and not (root / 'cleanup-entered').exists():\n"
+               "        (root / 'cleanup-entered').touch()\n"
+               "        wait('release-cleanup')\n"
+               "    return original_state(fd)\n"
+               "module.cleanup_failed_attempt, module.state_entry_exists = cleanup, state\n"
+               if pause_cleanup else "")
+            + "sys.exit(module.main())\n", encoding="utf-8")
+        process = self.start_process([sys.executable, str(launcher),
+                                      "--agent-harness-dir", str(self.harness),
+                                      "--pm-skills-dir", str(self.pm)])
+        self.wait_for("preparation-ready", process)
+        return process
+
+    def assert_plan_is_locked(self):
+        # A distinct process/open-file description must see the held lock.
+        probe = subprocess.run(
+            [sys.executable, "-c", "import fcntl, pathlib; "
+             "stream = pathlib.Path('.agent-harness/curs-1-plan.json').open(); "
+             "fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)"],
+            cwd=self.root, capture_output=True, text=True, timeout=5, check=False)
+        self.assertNotEqual(probe.returncode, 0, "PLAN was unlocked at the synchronization barrier")
+
+    def install_initializer_controller(self):
+        # The installed-controller boundary uses its documented init state shape.
+        # Parent interruption is tested separately to prove lock inheritance.
+        (self.harness / "scripts/loop_controller.py").write_text(
+            "import fcntl, json, pathlib, sys, time\n"
+            "root = pathlib.Path.cwd()\n"
+            "assert sys.argv[1:] == ['init', '--plan', '.agent-harness/curs-1-plan.json', '--state', '.agent-harness/curs-1-state.json']\n"
+            "with (root / '.agent-harness/curs-1-plan.json').open() as probe:\n"
+            "    try: fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+            "    except BlockingIOError: (root / 'controller-inherited-lock').touch()\n"
+            "(root / 'controller-entered').touch()\n"
+            "if (root / 'pause-controller').exists():\n"
+            "    deadline = time.monotonic() + 8\n"
+            "    while not (root / 'release-controller').exists():\n"
+            "        if time.monotonic() > deadline: raise RuntimeError('controller barrier timeout')\n"
+            "        time.sleep(0.01)\n"
+            "plan = json.loads((root / '.agent-harness/curs-1-plan.json').read_text())\n"
+            "state = {'schema':'agent-harness/state.v1', 'goal':plan['goal'], 'domain':plan['domain'],\n"
+            "         'plan_file':'.agent-harness/curs-1-plan.json', 'created_at':'2026-10-09T00:00:00Z',\n"
+            "         'iteration':0, 'max_loop_iterations':12, 'status':'open',\n"
+            "         'tasks':[dict(id=t['id'], skill=t['skill'], objective=t['objective'],\n"
+            "                       verification=t['verification'], max_attempts=3, attempts=0,\n"
+            "                       status='pending', evidence=[]) for t in plan['tasks']]}\n"
+            "with (root / '.agent-harness/curs-1-state.json').open('x') as stream: json.dump(state, stream)\n",
+            encoding="utf-8")
+
+    def start_initializer(self):
+        launcher = self.root / "initialize_fixture.py"
+        launcher.write_text(
+            "import fcntl, pathlib, runpy\n"
+            "root = pathlib.Path.cwd()\n"
+            "original = fcntl.flock\n"
+            "def flock(fd, operation):\n"
+            "    if operation == fcntl.LOCK_EX: (root / 'initializer-lock-attempt').touch()\n"
+            "    return original(fd, operation)\n"
+            "fcntl.flock = flock\n"
+            "runpy.run_path(str(root / 'scripts/initialize-curs-1-harness.py'), run_name='__main__')\n",
+            encoding="utf-8")
+        process = self.start_process([sys.executable, str(launcher)])
+        # Release a paused child before killing its wrapper during test cleanup.
+        self.addCleanup((self.root / "release-controller").touch)
+        return process
+
+    def test_failed_cleanup_waits_for_an_existing_plan_lock(self):
+        preparation = self.paused_preparation()
+        holder = self.start_process([
+            sys.executable, "-c",
+            "import fcntl, pathlib, time; root=pathlib.Path.cwd(); "
+            "stream=(root/'.agent-harness/curs-1-plan.json').open(); "
+            "fcntl.flock(stream, fcntl.LOCK_EX); (root/'holder-entered').touch(); "
+            "\nwhile not (root/'release-holder').exists(): time.sleep(0.01)\n"
+            "(root/'.agent-harness/curs-1-state.json').write_text('initialized')\n"])
+        self.wait_for("holder-entered", holder)
+        self.assert_plan_is_locked()
+        (self.root / "fail-preparation").touch()
+        try:
+            preparation.wait(timeout=0.2)
+        except subprocess.TimeoutExpired:
+            pass
+        else:
+            self.fail("Cleanup deleted a run while another process held its PLAN lock")
+        (self.root / "release-holder").touch()
+        self.finish_process(holder, 0)
+        self.finish_process(preparation, 1)
+        for name in ("manifest", "plan", "lock", "state"):
+            self.assertTrue((self.run / f"curs-1-{name}.json").is_file())
+
+    def test_initializer_wins_and_failed_cleanup_preserves_initialized_run(self):
+        self.install_initializer_controller()
+        (self.root / "pause-controller").touch()
+        preparation = self.paused_preparation(production=True)
+        before = {name: (self.run / name).read_bytes() for name in
+                  ("curs-1-manifest.json", "curs-1-plan.json", "curs-1-lock.json")}
+        initializer = self.start_initializer()
+        self.wait_for("controller-entered", initializer)
+        self.assert_plan_is_locked()
+        self.assertTrue((self.root / "controller-inherited-lock").exists())
+        (self.root / "fail-preparation").touch()
+        with self.assertRaises(subprocess.TimeoutExpired):
+            preparation.wait(timeout=0.2)
+        (self.root / "release-controller").touch()
+        self.finish_process(initializer, 0)
+        self.finish_process(preparation, 1)
+        self.assertEqual(before, {name: (self.run / name).read_bytes() for name in before})
+        self.assertTrue((self.run / "curs-1-state.json").is_file())
+        self.assertTrue((self.run / "curs-1-evidence").is_dir())
+        self.assert_exit(self.check(), 0)
+
+    def test_cleanup_wins_and_waiting_initializer_rejects_removed_inputs(self):
+        self.install_initializer_controller()
+        preparation = self.paused_preparation(pause_cleanup=True, production=True)
+        (self.root / "fail-preparation").touch()
+        self.wait_for("cleanup-entered", preparation)
+        self.assert_plan_is_locked()
+        initializer = self.start_initializer()
+        self.wait_for("initializer-lock-attempt", initializer)
+        self.assertFalse((self.root / "controller-entered").exists())
+        with self.assertRaises(subprocess.TimeoutExpired):
+            initializer.wait(timeout=0.2)
+        (self.root / "release-cleanup").touch()
+        self.finish_process(preparation, 1)
+        self.finish_process(initializer, 1)
+        self.assertFalse(self.run.exists())
+        self.assertFalse((self.root / "controller-entered").exists())
+
+    def test_controller_retains_plan_lock_when_initializer_is_interrupted(self):
+        self.install_initializer_controller()
+        (self.root / "pause-controller").touch()
+        preparation = self.paused_preparation(production=True)
+        initializer = self.start_initializer()
+        self.wait_for("controller-entered", initializer)
+        initializer.terminate()
+        initializer.wait(timeout=5)
+        self.assert_plan_is_locked()
+        (self.root / "fail-preparation").touch()
+        with self.assertRaises(subprocess.TimeoutExpired):
+            preparation.wait(timeout=0.2)
+        (self.root / "release-controller").touch()
+        self.finish_process(initializer, -signal.SIGTERM)
+        self.finish_process(preparation, 1)
+        self.assert_exit(self.check(), 0)
+
+    def test_preparation_freezes_and_prints_the_supported_initializer(self):
+        process = self.prepare()
+        self.assert_exit(process, 0)
+        result = json.loads(process.stdout[process.stdout.index('{\n  "prepared"'):])
+        self.assertEqual(result["commands"]["init_after_setup_review"],
+                         "python3 scripts/initialize-curs-1-harness.py")
+        lock = json.loads((self.run / "curs-1-lock.json").read_text())
+        self.assertIn("scripts/initialize-curs-1-harness.py", lock["sha256"])
+
+    def test_initializer_rejects_redirected_inputs_and_existing_state(self):
+        self.install_initializer_controller()
+        self.prepare_production_run(initialized=False)
+        outside = self.outside_directory()
+        for name in ("run", "plan", "lock", "manifest", "evidence", "dangling-state"):
+            with self.subTest(input=name):
+                target = (self.run if name == "run" else self.run / "curs-1-evidence"
+                          if name == "evidence" else self.run / f"curs-1-{'state' if name == 'dangling-state' else name}.json")
+                preserved = outside / target.name
+                if name != "dangling-state":
+                    target.rename(preserved)
+                target.symlink_to(outside / "missing-state" if name == "dangling-state" else preserved,
+                                  target_is_directory=name in ("run", "evidence"))
+                before = {str(path.relative_to(outside)): path.read_bytes()
+                          for path in outside.rglob("*") if path.is_file()}
+                try:
+                    self.finish_process(self.start_initializer(), 1)
+                    self.assertFalse((self.root / "controller-entered").exists())
+                    self.assertTrue(target.is_symlink())
+                    self.assertEqual(before, {str(path.relative_to(outside)): path.read_bytes()
+                                             for path in outside.rglob("*") if path.is_file()})
+                finally:
+                    target.unlink()
+                    if name != "dangling-state":
+                        preserved.rename(target)
+        state = self.run / "curs-1-state.json"
+        state.write_bytes(b"previous state\n")
+        self.finish_process(self.start_initializer(), 1)
+        self.assertEqual(state.read_bytes(), b"previous state\n")
+        self.assertFalse((self.root / "controller-entered").exists())
+        self.assert_outside_untouched(outside)
+
+    def test_initializer_requires_fresh_frozen_gate_and_evidence_directory(self):
+        self.install_initializer_controller()
+        self.prepare_production_run(initialized=False)
+        before = {name: (self.run / name).read_bytes() for name in
+                  ("curs-1-manifest.json", "curs-1-plan.json", "curs-1-lock.json")}
+        original = self.plan.read_bytes()
+        self.plan.write_bytes(original + b"\n")
+        self.finish_process(self.start_initializer(), 1)
+        self.assertFalse((self.root / "controller-entered").exists())
+        self.plan.write_bytes(original)
+        (self.run / "curs-1-evidence").rmdir()
+        self.finish_process(self.start_initializer(), 1)
+        self.assertFalse((self.root / "controller-entered").exists())
+        self.assertFalse((self.run / "curs-1-state.json").exists())
+        self.assertEqual(before, {name: (self.run / name).read_bytes() for name in before})
 
     def test_check_cli_accepts_an_honest_prepared_initialized_run(self):
         # Control case: real production lock_check accepts the producer's output.

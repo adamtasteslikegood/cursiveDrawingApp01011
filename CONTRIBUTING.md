@@ -31,7 +31,7 @@ Maintainers should configure required checks after their first successful runs. 
 
 The project is MIT licensed. Submit only code and documents you have permission to contribute.
 
-For the CURS-1 delivery loop, use the [charter](specs/curs-1-charter.md), tracked templates in `specs/harness/` and [harness instructions](docs/curs-1-harness.md). Prepare a fresh run with `scripts/prepare-curs-1-harness.py`; generated state and Jira/Confluence snapshots belong in ignored `.agent-harness/`. Freeze verifier checks before initialization, resume from the controller state, and require actual Jira In Review plus an open PR or evidenced Done. This delivery endpoint does not accept unresolved device or curriculum requirements.
+For the CURS-1 delivery loop, use the [charter](specs/curs-1-charter.md), tracked templates in `specs/harness/` and [harness instructions](docs/curs-1-harness.md). Prepare a fresh run with `scripts/prepare-curs-1-harness.py`; generated state and Jira/Confluence snapshots belong in ignored `.agent-harness/`. Freeze verifier checks, review setup, then initialize with the printed `scripts/initialize-curs-1-harness.py` command so initialization coordinates with failure cleanup. Resume from the controller state, and require actual Jira In Review plus an open PR or evidenced Done. This delivery endpoint does not accept unresolved device or curriculum requirements.
 
 When changing harness scripts, run `python3 scripts/check_curs_1_delivery.py --self-test` and `python3 scripts/test_curs_1_preparation.py`; CI runs both. Preserve the original commit and run artifacts before correcting frozen inputs, and use a fresh checkout for a later run.
 

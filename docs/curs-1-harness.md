@@ -15,10 +15,11 @@ artifacts; keep them out of the PR.
 
 ## Prepare and freeze
 
-Review all five setup files and the charter before preparation. Preparation resolves
+Review the tracked setup files and the charter before preparation. Preparation resolves
 installed paths, checks the manifest inventory against the task skills, runs
 the verifier's rejection tests and the PM plan gate on the resolved plan,
-then freezes SHA-256 checksums for the templates, verifier, preparation script,
+then freezes SHA-256 checksums for the templates, verifier, preparation and
+initialization scripts,
 this guide, resolved plan/manifest, canonical repository/lint/portable checks and
 plugin controller/governance scripts. It **does not initialize** the controller.
 
@@ -48,8 +49,21 @@ anchors exclusive writes to the validated runtime directory so a path replacemen
 cannot redirect generated files outside it. The frozen-input check also rejects
 symlinked runtime directories and reserved files, including dangling state links.
 Review the lock and resolved plan before
-running the printed `init_after_setup_review` command. Immediately check the
-frozen inputs and controller checks after initialization:
+running the printed `init_after_setup_review` command:
+
+```sh
+python3 scripts/initialize-curs-1-harness.py
+```
+
+The initializer and failed-preparation cleanup take the same exclusive advisory
+lock on the resolved plan. The initializer rechecks the frozen inputs and named
+directory/file identities while holding that lock before invoking the exact
+installed controller. If cleanup finishes first, initialization refuses missing
+or replaced inputs. If initialization finishes first, cleanup preserves the state
+and its input files. Use this wrapper for initialization; invoking the installed
+controller's raw `init` directly does not participate in this coordination.
+Preparation and initialization remain separate steps, with setup review between
+them. Immediately check the frozen inputs and controller checks after initialization:
 
 ```sh
 python3 scripts/prepare-curs-1-harness.py --check
@@ -234,5 +248,6 @@ It checks plugin-role identities and rejects symlinks during lock validation.
 It also checks that governance output preserves existing files and rejects
 paths outside the run directory, nested paths and symlinks.
 The preparation suite checks resolved-plan governance, skill inventory, retry
-after failure, directory symlinks and preservation of existing runs. Neither
-suite uses synthetic fixtures as live acceptance evidence.
+after failure, directory symlinks, initialization/cleanup coordination and
+preservation of existing runs. Neither suite uses synthetic fixtures as live
+acceptance evidence.
