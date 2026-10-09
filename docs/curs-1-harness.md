@@ -146,13 +146,40 @@ verification. Linux checks cannot replace the Apple build/simulator workflows.
 For any Done item, additionally supply `acceptance-receipts.json` with the same
 envelope and `response.data.receipts`. Each issue receipt includes `issue_key`,
 `human_reviewed: true`, `accepted_by: "Adam Schoen"`, `decision: "accepted"`,
-UTC `accepted_at`, the actual `acceptance_text`, nonempty `criteria`,
-`source_kind` (`user_message`, `jira_comment` or `confluence_page`) and a specific
-`source_reference`. Keep the attributable source, including the human decision,
-in the evidence log. An agent cannot manufacture acceptance or substitute a
-substring such as “done” in a document. When all three items are Done with valid
-receipts, T5 does not require `pr.json`, an open PR, or live GitHub workflow queries.
-Mixed Done/In Review completion requires both receipts and the live PR checks.
+UTC `accepted_at`, the actual `acceptance_text`, a nonempty list of `criteria`,
+`source_kind: "github_comment"` and `source_reference`, the exact URL of an
+owner-authored issue/PR conversation comment in this repository.
+
+The gate reads that comment live through authenticated `gh api` on `github.com`.
+Its ID and URL must match; its author must be `adamtasteslikegood`, a User account,
+with no GitHub App attribution. Its body must be a plain JSON acceptance object
+with the following shape. This is a **format example, not acceptance evidence**:
+
+```json
+{
+  "schema": "curs-1/human-acceptance.v1",
+  "issue_key": "CURS-6",
+  "human_reviewed": true,
+  "decision": "accepted",
+  "acceptance_text": "I accept CURS-6 after reviewing its source and reuse recommendation.",
+  "criteria": ["Source inventory and reuse recommendation reviewed."]
+}
+```
+
+The issue, decision, review flag, text and criteria must exactly match the local
+receipt, and `accepted_at` must equal the live comment's UTC `updated_at`.
+Missing, edited, revoked, differently authored or inaccessible sources block
+Done. Local `user_message`, `jira_comment` and `confluence_page` assertions are
+rejected because this CLI has no authenticated reader for those source types.
+Keep the actual human decision in the evidence log; an agent cannot invent it or
+post acceptance on the owner's behalf without their explicit decision.
+
+The source check verifies the authenticated record's identity and content. It
+does not prove physical human presence or distinguish every use of shared account
+credentials; ownership and authorization remain required. When all three items
+are Done, T5 queries their receipt sources but does not require `pr.json`, an open
+PR, or live GitHub workflow queries. Mixed Done/In Review completion requires both
+verified receipts and the live PR checks.
 
 CURS-9, CURS-22 and CURS-23 must remain To Do. Unexpected active epic children
 block the final gate. CURS-17 belongs to another epic and remains outside this

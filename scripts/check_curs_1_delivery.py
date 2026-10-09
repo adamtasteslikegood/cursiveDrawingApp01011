@@ -33,6 +33,8 @@ PRESERVED = ("CURS-9", "CURS-22", "CURS-23")
 TASKS = ("T1", "T2", "T3", "T4", "T5")
 MAX_AGE = dt.timedelta(minutes=30)
 ATLASSIAN = "https://tasteslikegood.atlassian.net"
+GITHUB_REPOSITORY = "adamtasteslikegood/cursiveDrawingApp01011"
+GITHUB_OWNER = "adamtasteslikegood"
 
 
 class GateError(Exception):
@@ -379,14 +381,53 @@ def description_text(value):
     return ""
 
 
+def verified_acceptance_source(key, receipt):
+    require(receipt.get("source_kind") == "github_comment",
+            f"{key}: acceptance requires a live verifiable GitHub comment source")
+    reference = receipt.get("source_reference")
+    require(isinstance(reference, str), f"{key}: acceptance source URL is missing")
+    match = re.fullmatch(rf"https://github\.com/{re.escape(GITHUB_REPOSITORY)}/"
+                         r"(?:issues|pull)/[1-9]\d*#issuecomment-([1-9]\d*)", reference)
+    require(match is not None, f"{key}: acceptance source must be a canonical repository comment URL")
+    comment_id = int(match.group(1))
+    source = run_json(["gh", "api", "--hostname", "github.com", "--method", "GET",
+                       f"repos/{GITHUB_REPOSITORY}/issues/comments/{comment_id}"])
+    require(isinstance(source, dict) and source.get("id") == comment_id
+            and source.get("html_url") == reference,
+            f"{key}: live acceptance comment identity differs from the receipt")
+    author = source.get("user", {})
+    require(isinstance(author, dict) and author.get("login") == GITHUB_OWNER
+            and author.get("type") == "User"
+            and source.get("performed_via_github_app", "missing") is None,
+            f"{key}: acceptance comment must be authored by the owner's user account without an app")
+    require(isinstance(source.get("body"), str), f"{key}: acceptance comment body is missing")
+    try:
+        body = json.loads(source["body"])
+    except ValueError as exc:
+        raise GateError(f"{key}: acceptance comment must contain a plain JSON acceptance object") from exc
+    require(isinstance(body, dict) and body.get("schema") == "curs-1/human-acceptance.v1"
+            and body.get("issue_key") == key and body.get("human_reviewed") is True
+            and body.get("decision") == "accepted",
+            f"{key}: live comment does not record current issue-specific human acceptance")
+    for field in ("issue_key", "human_reviewed", "decision", "acceptance_text", "criteria"):
+        require(body.get(field) == receipt.get(field),
+                f"{key}: local acceptance {field} differs from the live comment")
+    require(utc_time(source.get("updated_at")) == utc_time(receipt.get("accepted_at")),
+            f"{key}: acceptance timestamp differs from the live comment's current revision")
+    return {"comment_id": comment_id, "url": source["html_url"],
+            "author": author["login"], "updated_at": source["updated_at"]}
+
+
 def acceptance_receipts(evidence_dir, done_keys):
     if not done_keys:
         return {}
     data, _ = snapshot(evidence_dir, "acceptance-receipts.json")
     receipts = data.get("receipts", [])
-    require(isinstance(receipts, list), "Acceptance receipts must be a list")
+    require(isinstance(receipts, list) and all(isinstance(receipt, dict) for receipt in receipts),
+            "Acceptance receipts must be a list of objects")
     by_key = {receipt.get("issue_key"): receipt for receipt in receipts}
     require(len(by_key) == len(receipts), "Duplicate acceptance receipt identities")
+    verified = {}
     for key in done_keys:
         receipt = by_key.get(key, {})
         require(receipt.get("human_reviewed") is True
@@ -395,12 +436,13 @@ def acceptance_receipts(evidence_dir, done_keys):
                 f"{key}: Done requires explicit human acceptance")
         require(utc_time(receipt.get("accepted_at")) <= dt.datetime.now(dt.timezone.utc),
                 f"{key}: acceptance cannot be in the future")
-        require(len(receipt.get("acceptance_text", "").strip()) >= 20
-                and bool(receipt.get("criteria")), f"{key}: acceptance evidence is empty")
-        require(receipt.get("source_kind") in ("user_message", "jira_comment", "confluence_page")
-                and bool(receipt.get("source_reference")),
-                f"{key}: acceptance lacks an attributable human source")
-    return {key: by_key[key] for key in done_keys}
+        text, criteria = receipt.get("acceptance_text"), receipt.get("criteria")
+        require(isinstance(text, str) and len(text.strip()) >= 20
+                and isinstance(criteria, list) and bool(criteria)
+                and all(isinstance(item, str) and bool(item.strip()) for item in criteria),
+                f"{key}: acceptance evidence is empty or malformed")
+        verified[key] = receipt | {"verified_source": verified_acceptance_source(key, receipt)}
+    return verified
 
 
 def final_delivery(evidence_dir):
@@ -530,9 +572,9 @@ class FailureCases(unittest.TestCase):
             receipts = [{"issue_key": key, "human_reviewed": True, "accepted_by": "Adam Schoen",
                 "decision": "accepted", "accepted_at": now,
                 "acceptance_text": "Synthetic owner acceptance of the issue-specific criteria.",
-                "criteria": ["Synthetic criterion reviewed"], "source_kind": "user_message",
-                "source_reference": "synthetic-fixture-message"}
-                for key, status in zip(ISSUES, statuses) if status == "Done"]
+                "criteria": ["Synthetic criterion reviewed"], "source_kind": "github_comment",
+                "source_reference": f"https://github.com/adamtasteslikegood/cursiveDrawingApp01011/pull/10#issuecomment-{100001 + index}"}
+                for index, (key, status) in enumerate(zip(ISSUES, statuses)) if status == "Done"]
             write_snapshot("acceptance-receipts.json", {"receipts": receipts})
             if "In Review" in statuses:
                 write_snapshot("pr.json", {"number": 10})
@@ -544,14 +586,34 @@ class FailureCases(unittest.TestCase):
                 "createdAt": now, "databaseId": index, "status": "completed",
                 "conclusion": "success", "url": f"https://example.invalid/run/{index}"}
                 for index, name in enumerate(("CI", "CodeQL"), 1)]
-            (root / "api.json").write_text(json.dumps({"pr": pr, "runs": runs}), encoding="utf-8")
+            comments = {}
+            for receipt in receipts:
+                comment_id = int(receipt["source_reference"].split("#issuecomment-")[1])
+                body = {name: receipt[name] for name in (
+                    "issue_key", "human_reviewed", "decision", "acceptance_text", "criteria")}
+                body["schema"] = "curs-1/human-acceptance.v1"
+                comments[str(comment_id)] = {"id": comment_id, "html_url": receipt["source_reference"],
+                    "url": f"https://api.github.com/repos/adamtasteslikegood/cursiveDrawingApp01011/issues/comments/{comment_id}",
+                    "issue_url": "https://api.github.com/repos/adamtasteslikegood/cursiveDrawingApp01011/issues/10",
+                    "user": {"login": "adamtasteslikegood", "type": "User", "id": 1},
+                    "created_at": now, "updated_at": now, "body": json.dumps(body),
+                    "author_association": "OWNER", "performed_via_github_app": None}
+            (root / "api.json").write_text(json.dumps({"pr": pr, "runs": runs, "comments": comments}), encoding="utf-8")
             bindir = root / "bin"
             bindir.mkdir()
             gh = bindir / "gh"
             gh.write_text(f"#!{sys.executable}\nimport json, sys\nfrom pathlib import Path\n"
                           f"data = json.loads(Path({str(root / 'api.json')!r}).read_text())\n"
                           "args = sys.argv[1:]\n"
-                          "if args[:3] == ['pr', 'view', '10']:\n    print(json.dumps(data['pr']))\n"
+                          "if data.get('forbid_review_queries') and args[0] in ('pr', 'run'):\n    sys.exit(99)\n"
+                          "if len(args) == 6 and args[:5] == ['api', '--hostname', 'github.com', '--method', 'GET']:\n"
+                          "    prefix = 'repos/adamtasteslikegood/cursiveDrawingApp01011/issues/comments/'\n"
+                          "    if not args[5].startswith(prefix):\n        sys.exit(98)\n"
+                          "    comment_id = args[5][len(prefix):]\n"
+                          "    if comment_id in data.get('api_errors', {}) or comment_id not in data['comments']:\n"
+                          "        print('HTTP denied or not found', file=sys.stderr)\n        sys.exit(1)\n"
+                          "    print(json.dumps(data['comments'][comment_id]))\n"
+                          "elif args[:3] == ['pr', 'view', '10']:\n    print(json.dumps(data['pr']))\n"
                           "elif args[:2] == ['run', 'list']:\n    print(json.dumps(data['runs']))\n"
                           "else:\n    sys.exit(98)\n", encoding="utf-8")
             gh.chmod(0o755)
@@ -561,8 +623,11 @@ class FailureCases(unittest.TestCase):
 
     def test_done_only_requires_receipts_without_review_pr(self):
         with self.delivery_fixture() as (root, evidence, head):
-            # A Done-only handoff must not depend on either PR evidence or gh.
-            (root / "bin/gh").write_text(f"#!{sys.executable}\nimport sys\nsys.exit(99)\n")
+            # Done-only still reads its acceptance source, without PR/workflow queries.
+            path = root / "api.json"
+            api = read_json(path)
+            api["forbid_review_queries"] = True
+            path.write_text(json.dumps(api), encoding="utf-8")
             try:
                 result = final_delivery(evidence)
             except GateError as exc:
@@ -588,6 +653,93 @@ class FailureCases(unittest.TestCase):
             path.unlink()
             with self.assertRaisesRegex(GateError, "acceptance-receipts.json"):
                 final_delivery(evidence)
+
+    def test_done_rejects_receipts_without_live_verified_source(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            path = evidence / "acceptance-receipts.json"
+            valid = read_json(path)
+            for kind in ("user_message", "jira_comment", "confluence_page"):
+                broken = copy.deepcopy(valid)
+                broken["response"]["data"]["receipts"][0].update({
+                    "source_kind": kind, "source_reference": "locally-invented-human-acceptance"})
+                path.write_text(json.dumps(broken), encoding="utf-8")
+                with self.subTest(kind=kind), self.assertRaises(GateError):
+                    acceptance_receipts(evidence, ["CURS-6"])
+
+    def test_live_acceptance_source_requires_owner_and_current_acceptance(self):
+        with self.delivery_fixture() as (root, evidence, _):
+            path = root / "api.json"
+            valid = read_json(path)
+            source = valid["comments"]["100001"]
+            body = json.loads(source["body"])
+            changes = [
+                {"id": 100002}, {"html_url": "https://github.com/other/project/issues/1#issuecomment-100001"},
+                {"user": {"login": "another-person", "type": "User"}},
+                {"user": {"login": "adamtasteslikegood", "type": "Bot"}},
+                {"performed_via_github_app": {"id": 1}}, {"body": "No JSON acceptance object"},
+                {"body": "[]"},
+                {"updated_at": (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).isoformat()},
+            ]
+            changes.extend({"body": json.dumps(body | replacement)} for replacement in (
+                {"schema": "another-schema"}, {"issue_key": "CURS-7"}, {"human_reviewed": False},
+                {"decision": "revoked"}, {"acceptance_text": "Owner edited this acceptance after the local receipt."},
+                {"criteria": ["A different criterion"]}))
+            for change in changes:
+                broken = copy.deepcopy(valid)
+                broken["comments"]["100001"].update(change)
+                path.write_text(json.dumps(broken), encoding="utf-8")
+                with self.subTest(change=change), self.assertRaises(GateError):
+                    acceptance_receipts(evidence, ["CURS-6"])
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            result = acceptance_receipts(evidence, ["CURS-6"])
+            self.assertEqual(result["CURS-6"].get("verified_source"), {
+                "comment_id": 100001, "url": source["html_url"],
+                "author": "adamtasteslikegood", "updated_at": source["updated_at"]})
+
+    def test_live_acceptance_source_missing_or_denied_blocks_done(self):
+        with self.delivery_fixture() as (root, evidence, _):
+            path = root / "api.json"
+            valid = read_json(path)
+            missing = copy.deepcopy(valid)
+            missing["comments"].pop("100001")
+            denied = copy.deepcopy(valid) | {"api_errors": {"100001": 403}}
+            for api in (missing, denied):
+                path.write_text(json.dumps(api), encoding="utf-8")
+                with self.subTest(api=api.get("api_errors", "missing")), self.assertRaises(GateError):
+                    acceptance_receipts(evidence, ["CURS-6"])
+
+    def test_local_receipt_must_match_verified_comment(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            path = evidence / "acceptance-receipts.json"
+            valid = read_json(path)
+            for change in (
+                {"source_reference": "https://github.com/other/project/pull/10#issuecomment-100001"},
+                {"source_reference": "https://github.example/adamtasteslikegood/cursiveDrawingApp01011/pull/10#issuecomment-100001"},
+                {"source_reference": "https://github.com/adamtasteslikegood/cursiveDrawingApp01011/pull/10#discussion_r100001"},
+                {"accepted_at": (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=1)).isoformat()},
+                {"acceptance_text": "Locally fabricated acceptance text differs from the source."},
+                {"criteria": ["Locally fabricated accepted criterion"]},
+            ):
+                broken = copy.deepcopy(valid)
+                broken["response"]["data"]["receipts"][0].update(change)
+                path.write_text(json.dumps(broken), encoding="utf-8")
+                with self.subTest(change=change), self.assertRaises(GateError):
+                    acceptance_receipts(evidence, ["CURS-6"])
+
+    def test_acceptance_requires_substantive_text_and_string_criteria(self):
+        with self.delivery_fixture() as (root, evidence, _):
+            local_path, api_path = evidence / "acceptance-receipts.json", root / "api.json"
+            local, api = read_json(local_path), read_json(api_path)
+            for change in ({"criteria": [""]}, {"criteria": [42]}, {"criteria": "criterion"},
+                           {"criteria": []}, {"acceptance_text": "accepted"}):
+                receipt, source = copy.deepcopy(local), copy.deepcopy(api)
+                receipt["response"]["data"]["receipts"][0].update(change)
+                comment = source["comments"]["100001"]
+                comment["body"] = json.dumps(json.loads(comment["body"]) | change)
+                local_path.write_text(json.dumps(receipt), encoding="utf-8")
+                api_path.write_text(json.dumps(source), encoding="utf-8")
+                with self.subTest(change=change), self.assertRaises(GateError):
+                    acceptance_receipts(evidence, ["CURS-6"])
 
     def test_mixed_delivery_keeps_review_pr_ci_and_done_receipts(self):
         with self.delivery_fixture(("Done", "In Review", "In Review")) as (root, evidence, head):
