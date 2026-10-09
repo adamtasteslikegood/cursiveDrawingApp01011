@@ -7,15 +7,18 @@ review with the current open PR; neither mode certifies handwriting education.
 
 import argparse
 import copy
+import contextlib
 import datetime as dt
 import hashlib
 import html
 import json
+import os
 import re
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -209,6 +212,11 @@ def validate_charter(evidence_dir):
             "Charter readback must include its full markdown body")
     require(semantic_markdown(body["value"]) == semantic_markdown(text),
             "Published Confluence charter differs from the canonical charter")
+    page_url = f"{ATLASSIAN}/wiki/spaces/CURS/pages/{page['id']}"
+    epic_urls = re.findall(r"https?://[^\s<>\"'()]+", description_text(
+        epic.get("fields", {}).get("description")))
+    require(any(url == page_url or url.startswith(page_url + "/") for url in epic_urls),
+            "CURS-1 must link its published CURS charter page in its description")
     return {"space_id": str(space["id"]), "page_id": str(page["id"])}
 
 
@@ -269,6 +277,29 @@ def validate_children(data, envelope):
     return by_key
 
 
+def validate_preserved_sprint_item(issue):
+    require(issue.get("key") == "CURS-17" and str(issue.get("id")) == "31041",
+            "Wrong preserved sprint item identity")
+    fields = issue.get("fields", {})
+    parent = fields.get("parent", {})
+    require(parent.get("key") == "CURS-4" and str(parent.get("id")) == "31028",
+            "CURS-17: preserved parent changed")
+    require(fields.get("status", {}).get("name") == "In Progress",
+            "CURS-17: preserved actual status changed")
+    assignee = fields.get("assignee", {})
+    require(assignee.get("displayName") == OWNER
+            and assignee.get("accountId") == "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+            "CURS-17: preserved human owner changed")
+    memberships = fields.get("customFields", {}).get("Sprint", {}).get("value", [])
+    require(isinstance(memberships, list) and len(memberships) == 1
+            and isinstance(memberships[0], dict)
+            and memberships[0].get("id") == 119 and memberships[0].get("boardId") == 204
+            and memberships[0].get("state") == "future",
+            "CURS-17: preserved sprint 119/board 204 membership changed")
+    return {"issue": "CURS-17", "parent": "CURS-4", "status": "In Progress",
+            "sprint_id": 119, "board_id": 204}
+
+
 def run_json(command):
     try:
         result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True,
@@ -291,10 +322,14 @@ def local_head():
 
 def committed_review_artifacts():
     paths = ["specs/curs-1-charter.md", *(f"docs/reviews/{key}.md" for key in ISSUES)]
-    result = subprocess.run(["git", "diff", "--quiet", "HEAD", "--", *paths],
-                            cwd=ROOT, capture_output=True, text=True, check=False)
-    require(result.returncode == 0,
-            "Local charter/review packets differ from committed HEAD; commit reviewed artifacts before T5")
+    for relative in paths:
+        result = subprocess.run(["git", "show", f"HEAD:{relative}"],
+                                cwd=ROOT, capture_output=True, check=False)
+        require(result.returncode == 0,
+                f"Review artifact is absent from committed HEAD: {relative}")
+        path = ROOT / relative
+        require(path.is_file() and path.read_bytes() == result.stdout,
+                f"Review artifact differs from committed HEAD: {relative}; commit reviewed artifacts before T5")
 
 
 def validate_pr(pr, head):
@@ -373,26 +408,30 @@ def final_delivery(evidence_dir):
     packets = [review_packet(task) for task in ("T2", "T3", "T4")]
     data, envelope = snapshot(evidence_dir, "children.json")
     children = validate_children(data, envelope)
-    pr_evidence, _ = snapshot(evidence_dir, "pr.json")
-    number = pr_evidence.get("number")
-    require(isinstance(number, int) and number > 0, "PR evidence must name a positive PR number")
+    preserved, _ = snapshot(evidence_dir, "preserved-sprint-item.json")
+    preserved_item = validate_preserved_sprint_item(preserved)
     committed_review_artifacts()
-    pr = run_json(["gh", "pr", "view", str(number), "--json",
-                   "number,state,isDraft,baseRefName,headRefOid,headRefName,url,body,files"])
     head = local_head()
-    url = validate_pr(pr, head)
-    for key in ISSUES:
-        fields = children[key]["fields"]
-        if fields["status"]["name"] == "In Review":
-            require(url in description_text(fields.get("description")),
-                    f"{key}: actual In Review item must link the current PR in its description")
     done_keys = [key for key in ISSUES if children[key]["fields"]["status"]["name"] == "Done"]
     receipts = acceptance_receipts(evidence_dir, done_keys)
-    runs = run_json(["gh", "run", "list", "--branch", pr["headRefName"], "--limit", "100",
-                     "--json", "workflowName,headSha,status,conclusion,url,databaseId,createdAt,event"])
-    checks = validate_runs(runs, head)
+    review_keys = [key for key in ISSUES if children[key]["fields"]["status"]["name"] == "In Review"]
+    url, checks = None, {}
+    if review_keys:
+        pr_evidence, _ = snapshot(evidence_dir, "pr.json")
+        number = pr_evidence.get("number")
+        require(isinstance(number, int) and number > 0, "PR evidence must name a positive PR number")
+        pr = run_json(["gh", "pr", "view", str(number), "--json",
+                       "number,state,isDraft,baseRefName,headRefOid,headRefName,url,body,files"])
+        url = validate_pr(pr, head)
+        for key in review_keys:
+            require(url in description_text(children[key]["fields"].get("description")),
+                    f"{key}: actual In Review item must link the current PR in its description")
+        runs = run_json(["gh", "run", "list", "--branch", pr["headRefName"], "--limit", "100",
+                         "--json", "workflowName,headSha,status,conclusion,url,databaseId,createdAt,event"])
+        checks = validate_runs(runs, head)
     return {"charter": charter, "packets": packets, "head": head, "pr": url,
             "workflow_runs": checks,
+            "preserved_sprint_item": preserved_item,
             "jira_statuses": {key: children[key]["fields"]["status"]["name"] for key in ISSUES},
             "human_acceptance_receipts": receipts}
 
@@ -433,6 +472,247 @@ def governance_projection(output):
 
 class FailureCases(unittest.TestCase):
     """Exercise rejection behavior before freeze, without live Jira or GitHub."""
+
+    @contextlib.contextmanager
+    def delivery_fixture(self, statuses=("Done", "Done", "Done")):
+        """Use real publication/artifact checks and replace only external APIs."""
+        source_root = ROOT
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            paths = ["specs/curs-1-charter.md", *(f"docs/reviews/{key}.md" for key in ISSUES)]
+            for relative in paths:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((source_root / relative).read_bytes())
+            for command in (["git", "init", "-q"],
+                            ["git", "config", "user.name", "Gate Test"],
+                            ["git", "config", "user.email", "gate@example.invalid"],
+                            ["git", "add", "--", *paths],
+                            ["git", "commit", "-qm", "Synthetic delivery fixture"]):
+                subprocess.run(command, cwd=root, check=True, capture_output=True)
+            head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root,
+                                           text=True).strip()
+            evidence = root / "evidence"
+            evidence.mkdir()
+            now = dt.datetime.now(dt.timezone.utc).isoformat()
+
+            def write_snapshot(name, data, query="synthetic test fixture"):
+                (evidence / name).write_text(json.dumps({
+                    "captured_at": now, "cloud_id": CLOUD, "query": query,
+                    "response": {"data": data}}), encoding="utf-8")
+
+            url = "https://github.com/example/project/pull/10"
+            write_snapshot("epic.json", {"id": "31025", "key": "CURS-1", "fields": {
+                "issuetype": {"name": "Epic"}, "status": {"name": "In Progress"},
+                "assignee": {"displayName": "Adam Schoen"},
+                "description": "https://tasteslikegood.atlassian.net/wiki/spaces/CURS/pages/87916545/CURS-1+model+foundation+charter"}})
+            write_snapshot("sprint.json", {"isLast": True, "total": 1, "values": [{
+                "id": 119, "originBoardId": 204, "name": "Cursivly 01 - Model foundation",
+                "state": "future"}]})
+            write_snapshot("confluence-space.json", {"key": "CURS", "status": "current",
+                "id": "87785474", "webUrl": "https://tasteslikegood.atlassian.net/wiki/spaces/CURS"})
+            write_snapshot("confluence-charter.json", {"type": "page", "status": "current",
+                "id": "87916545", "spaceId": "87785474",
+                "title": "CURS-1 model foundation charter", "body": {"format": "markdown",
+                "value": (root / "specs/curs-1-charter.md").read_text(encoding="utf-8")}})
+            children = []
+            for key, status in zip((*ISSUES, *PRESERVED), (*statuses, "To Do", "To Do", "To Do")):
+                children.append({"key": key, "fields": {"parent": {"key": "CURS-1"},
+                    "status": {"name": status}, "assignee": {"displayName": "Adam Schoen"},
+                    "description": url,
+                    "customFields": {"Sprint": {"value": [{"id": 119, "boardId": 204}]}}}})
+            write_snapshot("children.json", {"isLast": True, "total": 6, "issues": children},
+                           "project = CURS AND parent = CURS-1 ORDER BY key ASC")
+            write_snapshot("preserved-sprint-item.json", {"key": "CURS-17", "id": "31041", "fields": {
+                "parent": {"key": "CURS-4", "id": "31028"}, "status": {"name": "In Progress"},
+                "assignee": {"displayName": "Adam Schoen", "accountId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6"}, "customFields": {"Sprint": {
+                "value": [{"id": 119, "boardId": 204, "state": "future"}]}}}})
+            receipts = [{"issue_key": key, "human_reviewed": True, "accepted_by": "Adam Schoen",
+                "decision": "accepted", "accepted_at": now,
+                "acceptance_text": "Synthetic owner acceptance of the issue-specific criteria.",
+                "criteria": ["Synthetic criterion reviewed"], "source_kind": "user_message",
+                "source_reference": "synthetic-fixture-message"}
+                for key, status in zip(ISSUES, statuses) if status == "Done"]
+            write_snapshot("acceptance-receipts.json", {"receipts": receipts})
+            if "In Review" in statuses:
+                write_snapshot("pr.json", {"number": 10})
+            pr = {"number": 10, "state": "OPEN", "isDraft": False, "baseRefName": "main",
+                "headRefOid": head, "headRefName": "review-fixture", "url": url,
+                "body": "CURS-6 docs/reviews/CURS-6.md CURS-7 docs/reviews/CURS-7.md CURS-8 docs/reviews/CURS-8.md",
+                "files": [{"path": relative} for relative in paths]}
+            runs = [{"workflowName": name, "headSha": head, "event": "pull_request",
+                "createdAt": now, "databaseId": index, "status": "completed",
+                "conclusion": "success", "url": f"https://example.invalid/run/{index}"}
+                for index, name in enumerate(("CI", "CodeQL"), 1)]
+            (root / "api.json").write_text(json.dumps({"pr": pr, "runs": runs}), encoding="utf-8")
+            bindir = root / "bin"
+            bindir.mkdir()
+            gh = bindir / "gh"
+            gh.write_text(f"#!{sys.executable}\nimport json, sys\nfrom pathlib import Path\n"
+                          f"data = json.loads(Path({str(root / 'api.json')!r}).read_text())\n"
+                          "args = sys.argv[1:]\n"
+                          "if args[:3] == ['pr', 'view', '10']:\n    print(json.dumps(data['pr']))\n"
+                          "elif args[:2] == ['run', 'list']:\n    print(json.dumps(data['runs']))\n"
+                          "else:\n    sys.exit(98)\n", encoding="utf-8")
+            gh.chmod(0o755)
+            with mock.patch(__name__ + ".ROOT", root), mock.patch.dict(
+                    os.environ, {"PATH": str(bindir) + os.pathsep + os.environ.get("PATH", "")}):
+                yield root, evidence, head
+
+    def test_done_only_requires_receipts_without_review_pr(self):
+        with self.delivery_fixture() as (root, evidence, head):
+            # A Done-only handoff must not depend on either PR evidence or gh.
+            (root / "bin/gh").write_text(f"#!{sys.executable}\nimport sys\nsys.exit(99)\n")
+            try:
+                result = final_delivery(evidence)
+            except GateError as exc:
+                self.fail(f"Valid Done-only acceptance was rejected: {exc}")
+            self.assertEqual(result["jira_statuses"], {
+                "CURS-6": "Done", "CURS-7": "Done", "CURS-8": "Done"})
+            self.assertEqual(set(result["human_acceptance_receipts"]), {"CURS-6", "CURS-7", "CURS-8"})
+            self.assertIsNone(result["pr"])
+            self.assertEqual(result["workflow_runs"], {})
+            self.assertEqual(result["head"], head)
+
+    def test_done_only_rejects_missing_or_invalid_human_receipts(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            path = evidence / "acceptance-receipts.json"
+            valid = read_json(path)
+            for changes in ({"human_reviewed": False}, {"accepted_by": "Agent"},
+                            {"criteria": []}, {"source_reference": ""}):
+                broken = copy.deepcopy(valid)
+                broken["response"]["data"]["receipts"][0].update(changes)
+                path.write_text(json.dumps(broken), encoding="utf-8")
+                with self.subTest(changes=changes), self.assertRaises(GateError):
+                    final_delivery(evidence)
+            path.unlink()
+            with self.assertRaisesRegex(GateError, "acceptance-receipts.json"):
+                final_delivery(evidence)
+
+    def test_mixed_delivery_keeps_review_pr_ci_and_done_receipts(self):
+        with self.delivery_fixture(("Done", "In Review", "In Review")) as (root, evidence, head):
+            result = final_delivery(evidence)
+            self.assertEqual(result["pr"], "https://github.com/example/project/pull/10")
+            self.assertEqual(result["head"], head)
+            self.assertEqual(result["workflow_runs"], {
+                "CI": "https://example.invalid/run/1", "CodeQL": "https://example.invalid/run/2"})
+            self.assertEqual(set(result["human_acceptance_receipts"]), {"CURS-6"})
+            path = root / "api.json"
+            valid = read_json(path)
+            for changes in ({"state": "MERGED"}, {"state": "CLOSED"},
+                            {"isDraft": True}, {"headRefOid": "old"}):
+                broken = copy.deepcopy(valid)
+                broken["pr"].update(changes)
+                path.write_text(json.dumps(broken), encoding="utf-8")
+                with self.subTest(changes=changes), self.assertRaises(GateError):
+                    final_delivery(evidence)
+            broken = copy.deepcopy(valid)
+            broken["runs"][0]["conclusion"] = "failure"
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with self.assertRaisesRegex(GateError, "CI run is not successful"):
+                final_delivery(evidence)
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            (evidence / "acceptance-receipts.json").unlink()
+            with self.assertRaisesRegex(GateError, "acceptance-receipts.json"):
+                final_delivery(evidence)
+
+    def test_review_only_does_not_require_done_acceptance_receipts(self):
+        with self.delivery_fixture(("In Review", "In Review", "In Review")) as (_, evidence, _):
+            (evidence / "acceptance-receipts.json").unlink()
+            result = final_delivery(evidence)
+            self.assertEqual(result["human_acceptance_receipts"], {})
+            self.assertEqual(result["pr"], "https://github.com/example/project/pull/10")
+
+    def test_review_artifacts_must_exist_in_committed_head(self):
+        with self.delivery_fixture() as (root, _, _):
+            committed_review_artifacts()
+            charter = root / "specs/curs-1-charter.md"
+            original = charter.read_bytes()
+            charter.write_bytes(original + b"\nLocal uncommitted change\n")
+            with self.assertRaises(GateError):
+                committed_review_artifacts()
+            charter.write_bytes(original)
+            subprocess.run(["git", "rm", "--cached", "--", "docs/reviews/CURS-7.md"],
+                           cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-qm", "Remove tracked review packet"],
+                           cwd=root, check=True, capture_output=True)
+            # The review is present locally, but cannot be fetched from this HEAD.
+            with self.assertRaises(GateError):
+                committed_review_artifacts()
+
+    def test_epic_must_link_its_published_charter_page(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            path = evidence / "epic.json"
+            envelope = read_json(path)
+            for description in ("No publication link", "https://tasteslikegood.atlassian.net/wiki/spaces/CURS/pages/879165450",
+                                "https://tasteslikegood.atlassian.net/wiki/spaces/OTHER/pages/87916545"):
+                envelope["response"]["data"]["fields"]["description"] = description
+                path.write_text(json.dumps(envelope), encoding="utf-8")
+                with self.subTest(description=description), self.assertRaises(GateError):
+                    validate_charter(evidence)
+            for description in (
+                "https://tasteslikegood.atlassian.net/wiki/spaces/CURS/pages/87916545",
+                {"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text",
+                    "text": "Charter", "marks": [{"type": "link", "attrs": {"href":
+                    "https://tasteslikegood.atlassian.net/wiki/spaces/CURS/pages/87916545/CURS-1+model+foundation+charter"}}]}]}]},
+            ):
+                envelope["response"]["data"]["fields"]["description"] = description
+                path.write_text(json.dumps(envelope), encoding="utf-8")
+                with self.subTest(description=description):
+                    self.assertEqual(validate_charter(evidence)["page_id"], "87916545")
+
+    def test_preserved_sprint_item_cannot_be_changed(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            path = evidence / "preserved-sprint-item.json"
+            valid = read_json(path)
+            mutations = (
+                (("key",), "CURS-99"), (("id",), "99999"),
+                (("fields", "parent", "key"), "CURS-1"),
+                (("fields", "parent", "id"), "31025"),
+                (("fields", "status", "name"), "Done"),
+                (("fields", "assignee", "displayName"), "Agent"),
+                (("fields", "assignee", "accountId"), "another-human"),
+                (("fields", "customFields", "Sprint", "value"), []),
+                (("fields", "customFields", "Sprint", "value"), [None]),
+                (("fields", "customFields", "Sprint", "value"), [{"id": 118, "boardId": 204, "state": "future"}]),
+                (("fields", "customFields", "Sprint", "value"), [{"id": 119, "boardId": 205, "state": "future"}]),
+                (("fields", "customFields", "Sprint", "value"), [{"id": 119, "boardId": 204, "state": "active"}]),
+                (("fields", "customFields", "Sprint", "value"), [{"id": 119, "boardId": 204, "state": "future"},
+                                                                      {"id": 118, "boardId": 204, "state": "future"}]),
+            )
+            for keys, value in mutations:
+                broken = copy.deepcopy(valid)
+                cursor = broken["response"]["data"]
+                for key in keys[:-1]:
+                    cursor = cursor[key]
+                cursor[keys[-1]] = value
+                path.write_text(json.dumps(broken), encoding="utf-8")
+                with self.subTest(field=keys, value=value):
+                    try:
+                        final_delivery(evidence)
+                    except Exception as exc:
+                        self.assertIsInstance(exc, GateError)
+                    else:
+                        self.fail("Changed preserved sprint item was accepted")
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            result = final_delivery(evidence)
+            self.assertEqual(result.get("preserved_sprint_item"), {
+                "issue": "CURS-17", "parent": "CURS-4", "status": "In Progress",
+                "sprint_id": 119, "board_id": 204})
+            self.assertNotIn("CURS-17", result["jira_statuses"])
+            self.assertNotIn("CURS-17", result["human_acceptance_receipts"])
+
+    def test_preserved_sprint_item_requires_fresh_readback(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            path = evidence / "preserved-sprint-item.json"
+            valid = read_json(path)
+            path.unlink()
+            with self.assertRaisesRegex(GateError, "preserved-sprint-item.json"):
+                final_delivery(evidence)
+            valid["captured_at"] = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=1)).isoformat()
+            path.write_text(json.dumps(valid), encoding="utf-8")
+            with self.assertRaisesRegex(GateError, "preserved-sprint-item.json.*stale"):
+                final_delivery(evidence)
 
     def test_snapshot_stale_denied_wrong_cloud(self):
         now = dt.datetime.now(dt.timezone.utc)
@@ -493,6 +773,22 @@ class FailureCases(unittest.TestCase):
                 broken["issues"].pop()
             with self.subTest(mutation=mutation), self.assertRaises(GateError):
                 validate_children(broken, envelope)
+
+    def test_unknown_inactive_children_are_outside_active_delivery_scope(self):
+        with self.delivery_fixture() as (_, evidence, _):
+            envelope = read_json(evidence / "children.json")
+            for status, allowed in (("To Do", True), ("Done", True), ("In Progress", False),
+                                    ("In Review", False), ("Blocked", False)):
+                data = copy.deepcopy(envelope["response"]["data"])
+                data["issues"].append({"key": "CURS-99", "fields": {
+                    "parent": {"key": "CURS-1"}, "status": {"name": status}}})
+                data["total"] = 7
+                with self.subTest(status=status):
+                    if allowed:
+                        self.assertIn("CURS-99", validate_children(data, envelope))
+                    else:
+                        with self.assertRaisesRegex(GateError, "Unexpected active epic child CURS-99"):
+                            validate_children(data, envelope)
 
     def test_pr_identity_and_review_artifacts(self):
         paths = [f"docs/reviews/{key}.md" for key in ISSUES]

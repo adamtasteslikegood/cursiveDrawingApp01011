@@ -15,6 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: python3 scripts/check_repository.py
+      - name: CURS-1 verifier regressions
+        run: python3 scripts/check_curs_1_delivery.py --self-test
+      - name: CURS-1 preparation regressions
+        run: python3 scripts/test_curs_1_preparation.py
   ios:
     runs-on: macos-15
     timeout-minutes: 30

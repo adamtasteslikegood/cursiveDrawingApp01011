@@ -1,6 +1,6 @@
 # CURS-1 model foundation charter
 
-Updated: 2026-10-08. Human owner, acceptance reviewer and escalation contact: **Adam Schoen**. Agent role: contributor. Project home: [Cursivly Confluence](https://tasteslikegood.atlassian.net/wiki/spaces/CURS).
+Updated: 2026-10-09. Human owner, acceptance reviewer and escalation contact: **Adam Schoen**. Agent role: contributor. Project home: [Cursivly Confluence](https://tasteslikegood.atlassian.net/wiki/spaces/CURS).
 
 ## Goal
 
@@ -24,7 +24,7 @@ CURS-9 (contextual connections), CURS-22 (personalized guides) and CURS-23 (font
 
 The owner's requested loop endpoint is: **each of CURS-6, CURS-7 and CURS-8 is either Done with acceptance evidence, or In Review with a linked open PR containing its substantive proposal and remaining acceptance gates**. A single PR may contain the three review packets if its description names all three and explains their individual findings. In Review means the proposal is ready for human review; alignment and device acceptance may remain unresolved and visible.
 
-The final verifier checks actual Jira status, issue ownership, exact sprint membership, complete and recent Jira snapshots, PR links in each issue, current open PR state, its files and commit, and completed CI/CodeQL for that commit. An `in-review` label alone does not satisfy it. The epic stays In Progress while alignment or any child acceptance remains open.
+The final verifier checks actual Jira status, issue ownership, exact sprint membership, complete and recent Jira snapshots, publication and committed review artifacts. Each item In Review must link the current open PR; the verifier also checks that PR's files, commit and completed CI/CodeQL. When all three items are Done with valid human acceptance receipts, completion does not require an open PR. An `in-review` label alone does not satisfy it. The epic stays In Progress while alignment or any child acceptance remains open.
 
 Done requires issue-specific acceptance evidence and a named human review receipt. Green CI, a merged engineering PR, a high synthetic score, or an agent's assessment cannot substitute for the missing owner, physical-device or educational review.
 
@@ -63,4 +63,4 @@ Sprint dates, capacity, story points and a delivery forecast remain **unset**. S
 
 ## Communication and close
 
-Publish this charter in the CURS Confluence space, link it from CURS-1 and each review packet, and link the PR from all three scoped issues. Record engineering checks and unresolved reviewer/device decisions in the PR. Refresh Jira snapshots and query GitHub before verifying the terminal condition. Close the agent delivery loop only after its controller and PM governance gates pass; this closes the requested review handoff, not the epic or Scrum sprint.
+Publish this charter in the CURS Confluence space and link it from CURS-1 and each review packet. Link the current open PR from each scoped issue In Review, and record engineering checks and unresolved reviewer/device decisions in that PR. Preserve attributable human acceptance receipts for each Done item. Refresh Jira snapshots before verifying the terminal condition; also query GitHub when any item is In Review. Close the agent delivery loop only after its controller and PM governance gates pass; this closes the requested review handoff, not the epic or Scrum sprint.

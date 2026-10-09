@@ -7,6 +7,18 @@
   "loop_defaults": {"max_attempts_per_task": 3, "max_loop_iterations": 12},
   "skills": [
     {
+      "name": "confluence-expert",
+      "path": "${PM_SKILLS_DIR}/confluence-expert",
+      "description": "Publish the CURS project charter and verify its project space and Jira handoff identity.",
+      "tools": [{"script": "scripts/check_curs_1_delivery.py", "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T1", "expect_exit": 0, "kind": "published-charter"}, {"cmd": "python3 scripts/check_repository.py", "expect_exit": 0, "kind": "repository-integrity"}, {"cmd": "./scripts/lint.sh", "expect_exit": 0, "kind": "lint"}]}]
+    },
+    {
+      "name": "jira-expert",
+      "path": "${PM_SKILLS_DIR}/jira-expert",
+      "description": "Prepare the CURS-6 source decision, CURS-7 guide contract and CURS-8 five-letter alignment review packets.",
+      "tools": [{"script": "scripts/check_curs_1_delivery.py", "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T2", "expect_exit": 0, "kind": "review-packet"}, {"cmd": "python3 scripts/check_curs_1_delivery.py --task T3", "expect_exit": 0, "kind": "review-packet"}, {"cmd": "python3 scripts/check_curs_1_delivery.py --task T4", "expect_exit": 0, "kind": "review-packet"}]}, {"script": "scripts/test-portable.py", "verification": [{"cmd": "python3 scripts/test-portable.py", "expect_exit": 0, "kind": "guide-behavior"}]}]
+    },
+    {
       "name": "pm-skills",
       "path": "${PM_SKILLS_DIR}/pm-skills",
       "description": "Named human ownership, charter, source decision, schema acceptance, five-letter alignment review, Jira review and PR evidence.",

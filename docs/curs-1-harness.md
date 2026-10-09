@@ -15,8 +15,9 @@ artifacts; keep them out of the PR.
 
 ## Prepare and freeze
 
-Review all five setup files and the charter before preparation. Preparation runs
-the verifier's rejection tests and the PM plan gate, resolves installed paths,
+Review all five setup files and the charter before preparation. Preparation resolves
+installed paths, checks the manifest inventory against the task skills, runs
+the verifier's rejection tests and the PM plan gate on the resolved plan,
 then freezes SHA-256 checksums for the templates, verifier, preparation script,
 this guide, resolved plan/manifest, canonical repository/lint/portable checks and
 plugin controller/governance scripts. It **does not initialize** the controller.
@@ -46,6 +47,13 @@ make an acceptance condition pass. An actual setup defect requires an explicit
 stop and a separately reviewed run, preserving the existing state and evidence.
 Do not reset or overwrite state to evade attempt/iteration limits.
 
+For a later verifier correction, preserve the original commit and its complete
+run artifacts in a separate checkout before editing tracked inputs. The closed
+2026-10-08 run belongs to commit `7463abb`; its preserved checkout is
+`.agent-harness/history/curs-1-2026-10-08`. Run its `--check` from that checkout.
+The corrected scripts do not revalidate or amend its historical receipts. Prepare
+any later run in a fresh checkout with no CURS-1 runtime files.
+
 ## Execute, verify and resume
 
 Read the controller path from `.agent-harness/curs-1-lock.json` into
@@ -71,7 +79,7 @@ locked plan and controller state; `next` selects the unfinished task.
 | T2 | `docs/reviews/CURS-6.md` source decision packet | Substantive packet and source-reference gate |
 | T3 | `docs/reviews/CURS-7.md` schema acceptance packet | Substantive packet gate and existing portable guide/model tests |
 | T4 | `docs/reviews/CURS-8.md` five-letter alignment-gap packet | Substantive packet and official-reference gate |
-| T5 | Fresh Jira/Confluence readbacks and current open PR | Complete scope, actual statuses, PR identity/files/body and live current-head CI/CodeQL |
+| T5 | Fresh Jira/Confluence readbacks and acceptance or PR evidence | Complete scope, actual statuses and Done receipts; In Review also requires PR identity/files/body and live current-head CI/CodeQL |
 
 Every task has Adam Schoen as human owner and reviewer. Budgets are **3 attempts
 per task and 12 controller loop operations**. An execute record and a verify run
@@ -109,10 +117,11 @@ and incomplete pagination. Capture all pages before asserting completeness.
 | --- | --- |
 | `epic.json` | `getJiraIssue` CURS-1 (`31025`), Epic, actual In Progress, Adam assignee |
 | `children.json` | Complete `searchJiraIssuesUsingJql`: `project = CURS AND parent = CURS-1 ORDER BY key ASC`; `isLast: true`, actual fields and sprint membership |
+| `preserved-sprint-item.json` | `getJiraIssue` CURS-17 (`31041`), still In Progress, parent CURS-4 (`31028`), Adam assignee, sprint 119 on board 204 |
 | `sprint.json` | Complete `listJiraBoardSprints` board 204; sprint 119 named `Cursivly 01 - Model foundation`, still future |
 | `confluence-space.json` | `getConfluenceSpace` CURS on the same site, current space, numeric ID and canonical space URL |
 | `confluence-charter.json` | Published current page `CURS-1 model foundation charter`, matching space ID and complete `body: {format: "markdown", value: "..."}` |
-| `pr.json` | `{ "number": 9 }` (use the actual PR number); GitHub fields are re-queried live with `gh` |
+| `pr.json` | Required when any scoped item is In Review: `{ "number": 10 }` (use the actual PR number); GitHub fields are re-queried live with `gh` |
 
 Confluence round-trip formatting may differ. The gate compares normalized words
 and link targets with the canonical charter, retaining meaningful content and
@@ -122,7 +131,11 @@ source references, and substantive **Acceptance evidence**, **Findings**,
 rechecks all packets and publication; these structural checks establish a
 reviewable artifact, while the human decides its conclusions.
 
-For In Review, every scoped issue description must link the canonical current PR
+The charter and all three review packets must be present in `git HEAD` and match
+the working copies; untracked or staged-only documents do not establish delivery.
+The epic description must link the published charter's actual page ID.
+
+For In Review, every issue in that status must link the canonical current PR
 URL. The PR must be OPEN, non-draft, target `main`, match local `git HEAD`, include
 all three review files and the charter, and name each issue and file in its body.
 The gate queries live workflow runs and requires successful current-head CI and
@@ -137,11 +150,15 @@ UTC `accepted_at`, the actual `acceptance_text`, nonempty `criteria`,
 `source_kind` (`user_message`, `jira_comment` or `confluence_page`) and a specific
 `source_reference`. Keep the attributable source, including the human decision,
 in the evidence log. An agent cannot manufacture acceptance or substitute a
-substring such as “done” in a document.
+substring such as “done” in a document. When all three items are Done with valid
+receipts, T5 does not require `pr.json`, an open PR, or live GitHub workflow queries.
+Mixed Done/In Review completion requires both receipts and the live PR checks.
 
 CURS-9, CURS-22 and CURS-23 must remain To Do. Unexpected active epic children
 block the final gate. CURS-17 belongs to another epic and remains outside this
-run. Sprint scheduling and broader sprint closure remain separate work.
+run's deliverables. Its independent readback must preserve the recorded parent,
+In Progress status, Adam assignee and sprint membership. Sprint scheduling and
+broader sprint closure remain separate work.
 
 ## Close and handoff
 
@@ -162,7 +179,11 @@ Report issue/PR/Confluence links, current verification evidence, and remaining
 human/device/alignment acceptance. Harness close completes this review handoff;
 it does not close the epic or the Scrum time-box.
 
-The standalone rejection suite is `python3 scripts/check_curs_1_delivery.py
---self-test`. Run it before freezing; it checks stale/denied evidence, pagination,
-label-only review, unexpected active children, preserved scope, invalid PR
-identity/artifacts, and missing/failing/stale workflow evidence.
+Run the verifier suite with `python3 scripts/check_curs_1_delivery.py --self-test`
+and preparation regressions with `python3 scripts/test_curs_1_preparation.py`.
+CI runs both. The verifier checks stale/denied evidence, pagination, label-only
+review, unexpected active children, preserved scope, committed artifacts,
+acceptance receipts, invalid PR identity and missing/failing/stale workflows.
+The preparation suite checks resolved-plan governance, skill inventory, retry
+after failure and preservation of existing runs. Neither suite uses synthetic
+fixtures as live acceptance evidence.

@@ -55,11 +55,11 @@
     },
     {
       "id": "T5", "title": "Verify the Jira and PR terminal gate", "skill": "pm-skills", "skill_path": "${PM_SKILLS_DIR}/pm-skills",
-      "objective": "Re-read complete epic children and sprint/Confluence state; verify each scoped issue is actually In Review linked to the current open PR or Done with explicit acceptance; check current-head CI and CodeQL; preserve unrelated epic/sprint work; close only after controller verification.",
+      "objective": "Re-read complete epic children and sprint/Confluence state; verify each scoped issue is actually In Review linked to the current open PR or Done with explicit acceptance; require current-head CI and CodeQL when any item is In Review; preserve unrelated epic/sprint work; close only after controller verification.",
       "owner": "Adam Schoen", "reviewer": "Adam Schoen", "executor": "agent", "status": "todo", "attempts": 0, "evidence": "", "max_attempts": 3,
       "acceptance": {"cmd": "python3 scripts/check_curs_1_delivery.py --task T5"},
       "verification": [{"cmd": "python3 scripts/check_curs_1_delivery.py --task T5", "expect_exit": 0, "kind": "live-delivery"}],
-      "done_when": "All fresh evidence passes the frozen executable gate, including actual Jira statuses, open PR identity and current CI/CodeQL; machine verification does not imply human educational acceptance."
+      "done_when": "All fresh evidence passes the frozen executable gate, including actual Jira statuses and Done acceptance receipts; any In Review item also requires open PR identity and current CI/CodeQL. Machine verification does not imply human educational acceptance."
     }
   ],
   "budgets": {"max_attempts_per_task": 3, "max_loop_iterations": 12},
