@@ -47,6 +47,8 @@ To apply formatting, run `swift format format --in-place --recursive CursiveProt
 
 CI produces a downloadable playground ZIP; device validation is still required before calling a prototype ready.
 
+Project planning lives in the [CURS-1 charter](specs/curs-1-charter.md) and [Cursivly Confluence space](https://tasteslikegood.atlassian.net/wiki/spaces/CURS). To operate the delivery loop, follow [the PM harness setup](docs/curs-1-harness.md), then run `python3 scripts/check_curs_1_delivery.py --task T5` against fresh local evidence. It checks review handoff and does not certify educational alignment.
+
 Foundation-only analyzer tests can also run on Linux with `python3 scripts/test-portable.py`. This copies the exact guide loader, lesson models/resources and math/model declarations from the active analyzer; it does not exercise Vision, PencilKit, or the iOS UI and does not replace the simulator suite.
 
 The five supported model letters can be viewed in [the primer visual](docs/primer-reference.svg); see [primer decisions](docs/primer-decisions.md) for educational-source comparison. To regenerate/check that visual, run `python3 scripts/export-primer.py` / `python3 scripts/export-primer.py --check`.
