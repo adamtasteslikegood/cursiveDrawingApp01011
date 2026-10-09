@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -25,12 +26,18 @@ def read_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def write_json(path, value, created=None):
+def write_json(path, value, created=None, directory_fd=None):
     # Exclusive creation protects previous runs from accidental resets.
-    with path.open("x", encoding="utf-8") as stream:
+    if directory_fd is None:  # Private staged plan in TemporaryDirectory.
+        stream = path.open("x", encoding="utf-8")
+    else:
+        descriptor = os.open(path.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                             0o600, dir_fd=directory_fd)
+        stream = os.fdopen(descriptor, "w", encoding="utf-8")
+    with stream:
         if created is not None:
-            stat = os.fstat(stream.fileno())
-            created.append((path, (stat.st_dev, stat.st_ino)))
+            info = os.fstat(stream.fileno())
+            created.append((path, (info.st_dev, info.st_ino), directory_fd))
         json.dump(value, stream, indent=2)
         stream.write("\n")
 
@@ -79,35 +86,68 @@ def validate_inventory(plan, manifest):
             raise ValueError(f"Task {task['id']} acceptance is not registered in the manifest")
 
 
-def create_directory(path, created):
+def create_directory(path, created, parent_fd):
+    new_directory = False
     try:
-        path.mkdir()
+        os.mkdir(path.name, dir_fd=parent_fd)
     except FileExistsError:
-        if not path.is_dir():
-            raise
+        pass
     else:
-        stat = path.stat()
-        created.append((path, (stat.st_dev, stat.st_ino)))
+        new_directory = True
+    # Pin the real directory. O_NOFOLLOW also rejects a symlink raced into mkdir.
+    descriptor = os.open(path.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                         dir_fd=parent_fd)
+    if new_directory:
+        info = os.fstat(descriptor)
+        created.append((path, (info.st_dev, info.st_ino), parent_fd))
+    return descriptor
 
 
-def cleanup_failed_attempt(files, directories):
+def validate_directory_binding(path, descriptor, parent_fd):
+    named = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+    pinned = os.fstat(descriptor)
+    if not stat.S_ISDIR(named.st_mode) or (named.st_dev, named.st_ino) != (pinned.st_dev, pinned.st_ino):
+        raise ValueError(f"Runtime directory changed or is a symlink: {path}")
+
+
+def state_entry_exists(runtime_fd):
+    if runtime_fd is None:
+        return False
+    try:
+        os.stat("curs-1-state.json", dir_fd=runtime_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    return True
+
+
+def runtime_digest(path, runtime_fd):
+    descriptor = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=runtime_fd)
+    with os.fdopen(descriptor, "rb") as stream:
+        return hashlib.sha256(stream.read()).hexdigest()
+
+
+def cleanup_failed_attempt(files, directories, runtime_fd):
     """Remove this attempt's own files/empty directories unless a state appears."""
     warnings = []
-    state = RUN / "curs-1-state.json"
-    for path, identity in [*reversed(files), *reversed(directories)]:
-        if state.exists() or state.is_symlink():
+    for path, identity, parent_fd in [*reversed(files), *reversed(directories)]:
+        if state_entry_exists(runtime_fd):
             break
         try:
-            stat = path.lstat()
-            if (stat.st_dev, stat.st_ino) != identity:
+            info = os.stat(path.name, dir_fd=parent_fd, follow_symlinks=False)
+            if (info.st_dev, info.st_ino) != identity:
                 continue  # Another attempt replaced this path; preserve it.
-            if path.is_dir():
+            if stat.S_ISDIR(info.st_mode):
                 # Preserve a directory to which another process added evidence.
-                if any(path.iterdir()):
-                    continue
-                path.rmdir()
+                descriptor = os.open(path.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                     dir_fd=parent_fd)
+                try:
+                    if os.listdir(descriptor):
+                        continue
+                    os.rmdir(path.name, dir_fd=parent_fd)
+                finally:
+                    os.close(descriptor)
             else:
-                path.unlink()
+                os.unlink(path.name, dir_fd=parent_fd)
         except FileNotFoundError:
             continue
         except OSError as exc:
@@ -124,6 +164,8 @@ def main():
     parser.add_argument("--check", action="store_true", help="Check existing frozen inputs without writing.")
     args = parser.parse_args()
     created_files, created_directories = [], []
+    directory_descriptors = []
+    runtime_fd = None
     try:
         if args.check:
             checked_command([sys.executable, "scripts/check_curs_1_delivery.py", "--check-lock"])
@@ -140,8 +182,11 @@ def main():
             if not path.is_file():
                 raise ValueError(f"Missing installed plugin file: {path}")
         destinations = [RUN / f"curs-1-{name}.json" for name in ("manifest", "plan", "lock", "state")]
+        for directory in (RUN, RUN / "curs-1-evidence"):
+            if directory.is_symlink():
+                raise ValueError(f"Runtime directory must not be a symlink: {directory}")
         for path in destinations:
-            if path.exists():
+            if path.exists() or path.is_symlink():
                 raise ValueError(f"Existing run preserved; refusing to overwrite {path.relative_to(ROOT)}")
         plan = resolve(read_json(TEMPLATES / "curs-1-plan.json"), pm)
         manifest = resolve(read_json(TEMPLATES / "curs-1-manifest.json"), pm)
@@ -154,10 +199,18 @@ def main():
             write_json(staged_plan, plan)
             checked_command([sys.executable, str(governance), "--plan",
                              str(staged_plan), "--mode", "plan"])
-        create_directory(RUN, created_directories)
-        create_directory(RUN / "curs-1-evidence", created_directories)
-        write_json(destinations[0], manifest, created_files)
-        write_json(destinations[1], plan, created_files)
+        root_fd = os.open(ROOT, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        directory_descriptors.append(root_fd)
+        runtime_fd = create_directory(RUN, created_directories, root_fd)
+        directory_descriptors.append(runtime_fd)
+        evidence_fd = create_directory(RUN / "curs-1-evidence", created_directories, runtime_fd)
+        directory_descriptors.append(evidence_fd)
+        validate_directory_binding(RUN, runtime_fd, root_fd)
+        validate_directory_binding(RUN / "curs-1-evidence", evidence_fd, runtime_fd)
+        if state_entry_exists(runtime_fd):
+            raise ValueError("A controller state appeared during preparation; preserving the run")
+        write_json(destinations[0], manifest, created_files, runtime_fd)
+        write_json(destinations[1], plan, created_files, runtime_fd)
         frozen = [
             "specs/harness/curs-1-manifest.json", "specs/harness/curs-1-plan.json",
             "scripts/check_curs_1_delivery.py", "scripts/prepare-curs-1-harness.py",
@@ -165,16 +218,22 @@ def main():
             ".agent-harness/curs-1-plan.json", "scripts/check_repository.py",
             "scripts/lint.sh", "scripts/test-portable.py", str(controller), str(governance),
         ]
+        validate_directory_binding(RUN, runtime_fd, root_fd)
+        validate_directory_binding(RUN / "curs-1-evidence", evidence_fd, runtime_fd)
         hashes = {}
         for name in frozen:
             path = Path(name) if Path(name).is_absolute() else ROOT / name
-            hashes[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+            hashes[name] = runtime_digest(path, runtime_fd) if path.parent == RUN else hashlib.sha256(path.read_bytes()).hexdigest()
         lock = {"schema": "curs-1/check-lock.v1",
                 "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
                 "controller": str(controller), "governance_gate": str(governance),
                 "plugin_versions": manifest["plugin_versions"], "sha256": hashes}
-        write_json(destinations[2], lock, created_files)
+        write_json(destinations[2], lock, created_files, runtime_fd)
+        validate_directory_binding(RUN, runtime_fd, root_fd)
+        validate_directory_binding(RUN / "curs-1-evidence", evidence_fd, runtime_fd)
         checked_command([sys.executable, "scripts/check_curs_1_delivery.py", "--check-lock"])
+        validate_directory_binding(RUN, runtime_fd, root_fd)
+        validate_directory_binding(RUN / "curs-1-evidence", evidence_fd, runtime_fd)
         commands = {
             "init_after_setup_review": shlex.join(["python3", str(controller), "init", "--plan",
                                                   ".agent-harness/curs-1-plan.json", "--state",
@@ -194,11 +253,14 @@ def main():
         return 0
     except (OSError, ValueError, KeyError) as exc:
         result = {"prepared": False, "reason": str(exc)}
-        warnings = cleanup_failed_attempt(created_files, created_directories)
+        warnings = cleanup_failed_attempt(created_files, created_directories, runtime_fd)
         if warnings:
             result["cleanup_warnings"] = warnings
         print(json.dumps(result, indent=2), file=sys.stderr)
         return 1
+    finally:
+        for descriptor in reversed(directory_descriptors):
+            os.close(descriptor)
 
 
 if __name__ == "__main__":

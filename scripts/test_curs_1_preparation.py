@@ -22,7 +22,7 @@ class PreparationTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="curs-1-preparation-test-")
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name) / "repo"
         self.run = self.root / ".agent-harness"
         self.pm = self.root / "plugins/pm skills"
         self.harness = self.root / "plugins/agent-harness"
@@ -59,6 +59,14 @@ class PreparationTests(unittest.TestCase):
             "    directory = root / '.agent-harness'\n"
             "    directory.mkdir(exist_ok=True)\n"
             "    (directory / 'curs-1-manifest.json').write_text('other attempt')\n"
+            "if (root / 'symlink-before-write').exists():\n"
+            "    directory = root / '.agent-harness'\n"
+            "    outside = root.parent / 'outside'\n"
+            "    if (root / 'symlink-before-write').read_text() == 'run':\n"
+            "        directory.symlink_to(outside, target_is_directory=True)\n"
+            "    else:\n"
+            "        directory.mkdir()\n"
+            "        (directory / 'curs-1-evidence').symlink_to(outside, target_is_directory=True)\n"
             "tasks = value.get('tasks', [])\n"
             "invalid = not tasks or any(not t.get('owner') or not t.get('reviewer') or not t.get('acceptance', {}).get('cmd') for t in tasks)\n"
             "print(json.dumps({'verdict':'PLAN-BLOCKED' if invalid else 'PLAN-OK'}))\n"
@@ -93,8 +101,38 @@ class PreparationTests(unittest.TestCase):
             encoding="utf-8")
 
     def prepare(self):
+        script = self.root / "scripts/prepare-curs-1-harness.py"
+        if (self.root / "swap-during-open").exists():
+            # Simulate a replacement between the directory inspection and the
+            # actual file open, regardless of Path.open versus os.open usage.
+            wrapper = self.root / "race_open.py"
+            wrapper.write_text(
+                "import io, os, pathlib, runpy, sys\n"
+                "root = pathlib.Path.cwd()\n"
+                "run = root / '.agent-harness'\n"
+                "original_io, original_os = io.open, os.open\n"
+                "swapped = False\n"
+                "def swap(path, writing, directory_fd=None):\n"
+                "    global swapped\n"
+                "    if swapped or not writing or not isinstance(path, (str, os.PathLike)):\n"
+                "        return\n"
+                "    path = pathlib.Path(path)\n"
+                "    if path.name == 'curs-1-manifest.json' and (path.parent == run or directory_fd is not None):\n"
+                "        run.rename(root / 'moved-run')\n"
+                "        run.symlink_to(root.parent / 'outside', target_is_directory=True)\n"
+                "        swapped = True\n"
+                "def open_io(path, mode='r', *args, **kwargs):\n"
+                "    swap(path, any(flag in mode for flag in 'wax'))\n"
+                "    return original_io(path, mode, *args, **kwargs)\n"
+                "def open_os(path, flags, *args, **kwargs):\n"
+                "    swap(path, flags & os.O_CREAT, kwargs.get('dir_fd'))\n"
+                "    return original_os(path, flags, *args, **kwargs)\n"
+                "io.open, os.open = open_io, open_os\n"
+                "runpy.run_path(str(root / 'scripts/prepare-curs-1-harness.py'), run_name='__main__')\n",
+                encoding="utf-8")
+            script = wrapper
         return subprocess.run(
-            [sys.executable, str(self.root / "scripts/prepare-curs-1-harness.py"),
+            [sys.executable, str(script),
              "--agent-harness-dir", str(self.harness), "--pm-skills-dir", str(self.pm)],
             cwd=self.root, capture_output=True, text=True, timeout=20, check=False)
 
@@ -105,6 +143,16 @@ class PreparationTests(unittest.TestCase):
         value = json.loads(path.read_text(encoding="utf-8"))
         mutation(value)
         path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+    def outside_directory(self):
+        outside = self.root.parent / "outside"
+        outside.mkdir()
+        (outside / "sentinel.json").write_bytes(b"original outside contents\n")
+        return outside
+
+    def assert_outside_untouched(self, outside):
+        self.assertEqual(sorted(path.name for path in outside.iterdir()), ["sentinel.json"])
+        self.assertEqual((outside / "sentinel.json").read_bytes(), b"original outside contents\n")
 
     def test_governance_validates_exact_resolved_bytes_before_runtime_writes(self):
         # Catches validating the unresolved template or validating after publish.
@@ -210,6 +258,79 @@ class PreparationTests(unittest.TestCase):
         self.assert_exit(self.prepare(), 1)
         self.assertEqual((self.run / "curs-1-manifest.json").read_text(), "other attempt")
         self.assertEqual(sorted(path.name for path in self.run.iterdir()), ["curs-1-manifest.json"])
+
+    def test_runtime_symlink_is_rejected_and_preserved(self):
+        # Following the runtime directory would publish the run outside checkout.
+        outside = self.outside_directory()
+        self.run.symlink_to(outside, target_is_directory=True)
+        self.assert_exit(self.prepare(), 1)
+        self.assertTrue(self.run.is_symlink())
+        self.assert_outside_untouched(outside)
+        self.run.unlink()
+        self.assert_exit(self.prepare(), 0)
+        self.assert_outside_untouched(outside)
+
+    def test_evidence_symlink_is_rejected_without_publishing_files(self):
+        # An evidence link must fail before creating any manifest/plan/lock.
+        outside = self.outside_directory()
+        self.run.mkdir()
+        (self.run / "history.json").write_bytes(b"previous run\n")
+        evidence = self.run / "curs-1-evidence"
+        evidence.symlink_to(outside, target_is_directory=True)
+        self.assert_exit(self.prepare(), 1)
+        self.assertEqual(sorted(path.name for path in self.run.iterdir()),
+                         ["curs-1-evidence", "history.json"])
+        self.assertEqual((self.run / "history.json").read_bytes(), b"previous run\n")
+        self.assertTrue(evidence.is_symlink())
+        self.assert_outside_untouched(outside)
+        evidence.unlink()
+        self.assert_exit(self.prepare(), 0)
+        self.assert_outside_untouched(outside)
+
+    def test_runtime_symlink_raced_after_preflight_is_rejected(self):
+        outside = self.outside_directory()
+        (self.root / "symlink-before-write").write_text("run")
+        self.assert_exit(self.prepare(), 1)
+        self.assertTrue(self.run.is_symlink())
+        self.assert_outside_untouched(outside)
+
+    def test_evidence_symlink_raced_after_preflight_is_rejected(self):
+        outside = self.outside_directory()
+        (self.root / "symlink-before-write").write_text("evidence")
+        self.assert_exit(self.prepare(), 1)
+        self.assertTrue((self.run / "curs-1-evidence").is_symlink())
+        self.assertEqual(sorted(path.name for path in self.run.iterdir()), ["curs-1-evidence"])
+        self.assert_outside_untouched(outside)
+
+    def test_runtime_swap_during_exclusive_open_cannot_redirect_writes(self):
+        outside = self.outside_directory()
+        (self.root / "swap-during-open").write_text("race")
+        self.assert_exit(self.prepare(), 1)
+        self.assertTrue(self.run.is_symlink())
+        self.assert_outside_untouched(outside)
+        # Cleanup must use the pinned original directory, not the replacement.
+        self.assertEqual(list((self.root / "moved-run").iterdir()), [])
+
+    def test_dangling_directory_links_are_rejected_without_replacing_them(self):
+        for directory in (self.run, self.run / "curs-1-evidence"):
+            with self.subTest(directory=directory.name):
+                if directory != self.run:
+                    self.run.mkdir()
+                directory.symlink_to(self.root.parent / "missing", target_is_directory=True)
+                self.assert_exit(self.prepare(), 1)
+                self.assertTrue(directory.is_symlink())
+                directory.unlink()
+                if directory != self.run:
+                    self.run.rmdir()
+
+    def test_dangling_reserved_state_link_blocks_preparation(self):
+        # exists() alone misses the state entry; it must still block a new run.
+        self.run.mkdir()
+        state = self.run / "curs-1-state.json"
+        state.symlink_to(self.root.parent / "missing-state")
+        self.assert_exit(self.prepare(), 1)
+        self.assertEqual(list(self.run.iterdir()), [state])
+        self.assertTrue(state.is_symlink())
 
 
 if __name__ == "__main__":

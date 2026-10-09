@@ -34,7 +34,10 @@ python3 scripts/prepare-curs-1-harness.py \
 
 The JSON output gives exact resolved controller and governance paths and the
 initialization/close commands. Existing CURS-1 run files cause preparation to
-fail, preserving the previous run. Review the lock and resolved plan before
+fail, preserving the previous run. The runtime and evidence directories must be
+real directories inside this checkout; symlinked paths are rejected. Preparation
+anchors exclusive writes to the validated runtime directory so a path replacement
+cannot redirect generated files outside it. Review the lock and resolved plan before
 running the printed `init_after_setup_review` command. Immediately check the
 frozen inputs and controller checks after initialization:
 
@@ -220,5 +223,5 @@ acceptance receipts, invalid PR identity and missing/failing/stale workflows.
 It also checks that governance output preserves existing files and rejects
 paths outside the run directory, nested paths and symlinks.
 The preparation suite checks resolved-plan governance, skill inventory, retry
-after failure and preservation of existing runs. Neither suite uses synthetic
-fixtures as live acceptance evidence.
+after failure, directory symlinks and preservation of existing runs. Neither
+suite uses synthetic fixtures as live acceptance evidence.
