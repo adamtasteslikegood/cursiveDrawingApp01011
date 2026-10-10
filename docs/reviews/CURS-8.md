@@ -5,6 +5,13 @@ Disposition: alignment-gap proposal for In Review. Zaner-Bloser alignment remain
 unaccepted. The owner selected public official references for this review; no
 particular complete edition or publisher asset adaptation has been approved.
 
+Review continuation, 2026-10-09: [PR #10](https://github.com/adamtasteslikegood/cursiveDrawingApp01011/pull/10)
+delivered this worksheet to main. Fresh Atlassian MCP reads still show CURS-8
+In Review, with model alignment pending. The owner selected a fresh review
+handoff. The [decision register](../curs-1-review-continuation.md) preserves
+each formation and contextual-pair decision below as pending. The official
+reference observations retain their original 2026-10-08 attribution.
+
 ## Acceptance evidence
 
 All five source-traceable records are in

@@ -4,6 +4,14 @@ Prepared 2026-10-08 for **Adam Schoen**, human owner and acceptance reviewer.
 Disposition: proposal for In Review; the source recommendation has not been
 accepted. The original Jira acceptance criteria remain authoritative.
 
+Review continuation, 2026-10-09: [PR #10](https://github.com/adamtasteslikegood/cursiveDrawingApp01011/pull/10)
+delivered this assessment to main. Fresh Atlassian MCP reads still show CURS-6
+In Review. Its comments contain engineering handoffs, with owner acceptance
+explicitly pending. The owner selected a fresh review handoff rather than model
+implementation. The [decision register](../curs-1-review-continuation.md) retains
+the recommendation below and records its pending decision. Source observations
+remain attributed to the 2026-10-08 investigation.
+
 ## Acceptance evidence
 
 The [source assessment](../model-source-assessment.md) and

@@ -4,6 +4,14 @@ Prepared 2026-10-08 for **Adam Schoen**, human owner and acceptance reviewer.
 Disposition: engineering evidence and scope decisions for In Review. Schema
 acceptance and the outstanding device checklist have not been recorded.
 
+Review continuation, 2026-10-09: [PR #10](https://github.com/adamtasteslikegood/cursiveDrawingApp01011/pull/10)
+delivered this audit to main. Fresh Atlassian MCP reads still show CURS-7
+In Review. The recorded 1.3 device report covers Stroke Lab, while imports and
+the full checklist remain unreported. The owner selected a fresh review
+handoff. The [decision register](../curs-1-review-continuation.md) keeps schema
+refinement and device acceptance as distinct pending decisions; it does not
+treat the documentation merge as acceptance of missing contextual support.
+
 ## Acceptance evidence
 
 The canonical contract is [guide-format.md](../guide-format.md), implemented by

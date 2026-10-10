@@ -26,3 +26,18 @@ Use the PR's actual check results and ZIP artifact as delivery evidence; a local
 ## 1.5 acceptance and merge authorization — 2026-10-08
 
 The [owner's 1.5 evaluation](ipad-prototype-1.5-evaluation.md) confirms that the app runs on the same setup, grades better than 1.4, and Replay clears the writing area. The owner requests merging PRs #7/#8. CURS-25/CURS-26 track these delivered improvements; earlier 1.4 evidence confirms comfortable centering for CURS-24. This is qualitative acceptance of the prototype changes, not completion of the model-foundation sprint, educational calibration, or every device-checklist case. Sprint membership, dates and estimates are unchanged; CURS-20/CURS-21 retain their recorded detailed scoring follow-ups.
+
+## Review continuation — 2026-10-09
+
+[PR #10](https://github.com/adamtasteslikegood/cursiveDrawingApp01011/pull/10)
+delivered the charter and three review packets to main. Fresh Atlassian MCP
+readbacks still show CURS-6/7/8 In Review and the epic In Progress. The owner
+selected a new PR with fresh harness evidence to restore the review handoff.
+The [decision register](curs-1-review-continuation.md) identifies the outstanding
+source, schema, device and model decisions. The new run uses the unchanged
+merged verifier and separate frozen inputs/state, preserving the earlier run.
+
+This continuation does not infer acceptance from PR #10's merge. CURS-17 retains
+its separate parent, owner, In Progress status and sprint membership. CURS-9/22/23
+remain To Do. Sprint 119 remains future on board 204 with no dates, capacity or
+estimates added.
