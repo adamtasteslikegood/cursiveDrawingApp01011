@@ -83,6 +83,28 @@ any later run in a fresh checkout with no CURS-1 runtime files.
 
 ## Execute, verify and resume
 
+The 2026-10-08 controller state is already closed. A merged review PR cannot
+satisfy the current In Review gate, and merging documents does not supply
+issue-specific acceptance. When the owner requests a fresh review handoff,
+preserve the closed run and use a new branch/worktree from current main:
+
+```sh
+git fetch origin
+git worktree add -b chore/curs-1-review-continuation \
+  .agent-harness/continuation-2026-10-09 origin/main
+cd .agent-harness/continuation-2026-10-09
+```
+
+These are the branch and checkout for the current continuation. For a later run,
+choose new names and retain this checkout. Update the charter and review packets
+before preparation, open a new review PR, and refresh their Jira links through
+the authenticated Atlassian MCP connector. Use the unchanged merged verifier
+and the same preparation/initialization sequence above. Review the newly frozen
+inputs before initialization. Do not reuse the root checkout's historical state
+or copy its stale snapshots into a new run. The
+[continuation decision register](curs-1-review-continuation.md) records the
+current review scope and pending acceptance.
+
 Read the controller path from `.agent-harness/curs-1-lock.json` into
 `CURS_CONTROLLER`, or use the exact path printed by preparation. Ask `next` for
 the directive, execute only that task, record execution, then let the controller
